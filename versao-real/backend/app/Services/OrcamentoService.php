@@ -25,7 +25,8 @@ class OrcamentoService
 
         $dias = Carbon::parse($retirada)->startOfDay()->diffInDays(Carbon::parse($devolucao)->startOfDay(), false);
 
-        return max(1, (int) $dias);
+        // No Carbon 3 a diferença vem como float; os dois lados estão no início do dia, então é inteira.
+        return max(1, (int) round($dias));
     }
 
     /**

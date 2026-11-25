@@ -1,6 +1,6 @@
 # Backend: API Laravel (Lume Locações)
 
-Laravel 10 (PHP 8.1+). Clientes, produtos, orçamentos, financeiro e painel. Dados fictícios de exemplo vêm no seeder.
+Laravel 12 (PHP 8.2+). Clientes, produtos, orçamentos, financeiro e painel. Dados fictícios de exemplo vêm no seeder.
 **Não há login nesta versão**: use só em ambiente local ou atrás de uma proteção sua.
 
 ## Rodar
