@@ -1,0 +1,18 @@
+# Hospedagem da API Python (assistente Lumi) no Render.
+# Painel do Render: New > Blueprint > escolha este repositório. O plano gratuito basta.
+services:
+  - type: web
+    name: lume-ia
+    runtime: python
+    plan: free
+    rootDir: ia-api
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      # Sites que podem chamar a API pelo navegador, separados por vírgula.
+      # Ex.: https://SEU-USUARIO.github.io  (só a origem, sem o nome do repositório)
+      - key: IA_ORIGENS_PERMITIDAS
+        sync: false

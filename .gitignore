@@ -1,0 +1,12 @@
+node_modules/
+dist/
+vendor/
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.sqlite
+ia-api/data/perguntas_sem_resposta.jsonl
+.phpunit.result.cache
+
+versao-pages/

@@ -1,0 +1,435 @@
+[
+  {
+    "id": "painel-indicadores",
+    "modulo": "Painel",
+    "pergunta": "O que mostra o painel?",
+    "palavras_chave": [
+      "painel",
+      "dashboard",
+      "indicadores",
+      "resumo",
+      "início"
+    ],
+    "resposta": "O painel resume o negócio: quanto foi recebido no mês, quanto há a receber, o que está em atraso e quantos orçamentos estão em aberto. Abaixo ficam o gráfico de recebimentos dos últimos 6 meses, os orçamentos por status, os produtos mais alugados e os próximos eventos."
+  },
+  {
+    "id": "painel-recebido",
+    "modulo": "Painel",
+    "pergunta": "Como é calculado o valor recebido no mês?",
+    "palavras_chave": [
+      "recebido",
+      "mês",
+      "faturamento",
+      "receita"
+    ],
+    "resposta": "O recebido no mês soma as cobranças com status Pago cuja data de pagamento cai no mês atual. Cobranças pendentes não entram nessa conta."
+  },
+  {
+    "id": "painel-receber-atraso",
+    "modulo": "Painel",
+    "pergunta": "Qual a diferença entre a receber e em atraso?",
+    "palavras_chave": [
+      "a receber",
+      "atraso",
+      "vencido",
+      "pendente"
+    ],
+    "resposta": "A receber soma as cobranças pendentes que ainda não venceram. Em atraso soma as cobranças pendentes cujo vencimento já passou."
+  },
+  {
+    "id": "painel-grafico",
+    "modulo": "Painel",
+    "pergunta": "O que mostra o gráfico do painel?",
+    "palavras_chave": [
+      "gráfico",
+      "barras",
+      "6 meses",
+      "evolução"
+    ],
+    "resposta": "O gráfico mostra o total recebido em cada um dos últimos 6 meses, contando as cobranças pela data em que foram pagas."
+  },
+  {
+    "id": "painel-eventos",
+    "modulo": "Painel",
+    "pergunta": "O que são os próximos eventos?",
+    "palavras_chave": [
+      "próximos eventos",
+      "agenda",
+      "retirada",
+      "calendário"
+    ],
+    "resposta": "É a lista de orçamentos aprovados cuja retirada ainda vai acontecer, em ordem de data. Serve para saber o que precisa ser separado primeiro."
+  },
+  {
+    "id": "orc-criar",
+    "modulo": "Orçamentos",
+    "pergunta": "Como criar um orçamento?",
+    "palavras_chave": [
+      "criar",
+      "novo orçamento",
+      "cadastrar",
+      "montar"
+    ],
+    "resposta": "Em Orçamentos, escolha Novo orçamento. Informe o cliente, o nome do evento, as datas de retirada e devolução, adicione os produtos com as quantidades e, se quiser, um desconto. Ao salvar, o orçamento nasce como Rascunho."
+  },
+  {
+    "id": "orc-numero",
+    "modulo": "Orçamentos",
+    "pergunta": "Como o número do orçamento é gerado?",
+    "palavras_chave": [
+      "número",
+      "numeração",
+      "sequência",
+      "código do orçamento"
+    ],
+    "resposta": "O número é gerado automaticamente no formato ano/sequência, por exemplo 2026/0012. A sequência reinicia a cada ano e você não precisa digitar nada."
+  },
+  {
+    "id": "orc-calculo",
+    "modulo": "Orçamentos",
+    "pergunta": "Como é calculado o total do orçamento?",
+    "palavras_chave": [
+      "total",
+      "cálculo",
+      "valor",
+      "soma",
+      "preço"
+    ],
+    "resposta": "Para cada item, multiplica-se a quantidade pelo valor da diária. A soma dos itens é multiplicada pelo número de diárias e, no fim, o desconto é subtraído. O total nunca fica negativo."
+  },
+  {
+    "id": "orc-diarias",
+    "modulo": "Orçamentos",
+    "pergunta": "Como as diárias são contadas?",
+    "palavras_chave": [
+      "diária",
+      "diárias",
+      "dias",
+      "período",
+      "retirada",
+      "devolução"
+    ],
+    "resposta": "As diárias são os dias entre a retirada e a devolução, com mínimo de 1. Retirar em 10/12 e devolver em 12/12 conta 2 diárias; retirar e devolver no mesmo dia conta 1."
+  },
+  {
+    "id": "orc-desconto",
+    "modulo": "Orçamentos",
+    "pergunta": "Como aplicar desconto no orçamento?",
+    "palavras_chave": [
+      "desconto",
+      "abatimento",
+      "reduzir valor"
+    ],
+    "resposta": "O desconto é um valor em reais informado no próprio orçamento e é subtraído depois de calcular as diárias. Ele só pode ser alterado enquanto o orçamento estiver como Rascunho ou Enviado."
+  },
+  {
+    "id": "orc-status",
+    "modulo": "Orçamentos",
+    "pergunta": "Quais são os status do orçamento?",
+    "palavras_chave": [
+      "status",
+      "situação",
+      "etapas",
+      "rascunho",
+      "enviado",
+      "aprovado",
+      "finalizado",
+      "cancelado"
+    ],
+    "resposta": "Os status são: Rascunho (em montagem), Enviado (mandado ao cliente), Aprovado (confirmado, segura o estoque e gera a cobrança), Finalizado (evento concluído) e Cancelado."
+  },
+  {
+    "id": "orc-editar",
+    "modulo": "Orçamentos",
+    "pergunta": "Posso editar um orçamento depois de aprovado?",
+    "palavras_chave": [
+      "editar",
+      "alterar",
+      "mudar",
+      "modificar",
+      "aprovado"
+    ],
+    "resposta": "Não. Só é possível editar orçamentos Rascunho ou Enviado. Depois de aprovado, o orçamento fica travado para proteger o estoque e a cobrança. Se precisar mudar algo, cancele e crie outro."
+  },
+  {
+    "id": "orc-enviar",
+    "modulo": "Orçamentos",
+    "pergunta": "O que acontece ao enviar um orçamento?",
+    "palavras_chave": [
+      "enviar",
+      "enviado",
+      "mandar ao cliente"
+    ],
+    "resposta": "Enviar muda o status de Rascunho para Enviado. O sistema não manda e-mail: a ação marca que o orçamento foi entregue ao cliente e aguarda resposta."
+  },
+  {
+    "id": "orc-aprovar",
+    "modulo": "Orçamentos",
+    "pergunta": "Como aprovar um orçamento?",
+    "palavras_chave": [
+      "aprovar",
+      "aprovação",
+      "confirmar",
+      "fechar negócio"
+    ],
+    "resposta": "Abra o orçamento (Rascunho ou Enviado) e use Aprovar. O sistema confere se há estoque para todo o período. Se estiver tudo certo, o orçamento fica Aprovado e uma cobrança é criada com vencimento na data de retirada e valor igual ao total."
+  },
+  {
+    "id": "orc-disponibilidade",
+    "modulo": "Orçamentos",
+    "pergunta": "Por que não consigo aprovar o orçamento?",
+    "palavras_chave": [
+      "não aprova",
+      "erro",
+      "falta",
+      "estoque",
+      "indisponível",
+      "disponibilidade",
+      "em falta",
+      "problema"
+    ],
+    "resposta": "Provavelmente falta estoque. Ao aprovar, o sistema soma as quantidades de outros orçamentos aprovados que se sobrepõem ao seu período. Se algum produto não tem unidades suficientes, a mensagem mostra o produto e quanto falta, e o orçamento continua como estava. Reduza a quantidade ou mude as datas."
+  },
+  {
+    "id": "orc-finalizar",
+    "modulo": "Orçamentos",
+    "pergunta": "Como finalizar um orçamento?",
+    "palavras_chave": [
+      "finalizar",
+      "concluir",
+      "encerrar",
+      "evento terminou"
+    ],
+    "resposta": "Com o orçamento Aprovado, use Finalizar depois que o evento acontecer e os itens voltarem. Ele passa para Finalizado e deixa de segurar estoque."
+  },
+  {
+    "id": "orc-cancelar",
+    "modulo": "Orçamentos",
+    "pergunta": "Como cancelar um orçamento?",
+    "palavras_chave": [
+      "cancelar",
+      "desistir",
+      "cancelamento"
+    ],
+    "resposta": "Orçamentos Rascunho, Enviado ou Aprovado podem ser cancelados. Ao cancelar um orçamento aprovado, o estoque é liberado e as cobranças pendentes dele também são canceladas. Orçamentos Finalizados não podem ser cancelados."
+  },
+  {
+    "id": "orc-excluir",
+    "modulo": "Orçamentos",
+    "pergunta": "Como excluir um orçamento?",
+    "palavras_chave": [
+      "excluir",
+      "apagar",
+      "deletar",
+      "remover"
+    ],
+    "resposta": "Só orçamentos Rascunho ou Cancelado podem ser excluídos, e a exclusão é definitiva. Para um orçamento aprovado, o caminho é cancelar."
+  },
+  {
+    "id": "orc-preco-congelado",
+    "modulo": "Orçamentos",
+    "pergunta": "Se eu mudar o preço de um produto, os orçamentos mudam?",
+    "palavras_chave": [
+      "preço",
+      "valor da diária",
+      "reajuste",
+      "congelado",
+      "histórico"
+    ],
+    "resposta": "Não. Cada item guarda o valor da diária do momento em que foi adicionado. Mudar o preço no cadastro só vale para novos itens, então os orçamentos antigos mantêm o valor combinado."
+  },
+  {
+    "id": "fin-cobranca",
+    "modulo": "Financeiro",
+    "pergunta": "Quando uma cobrança é criada?",
+    "palavras_chave": [
+      "cobrança",
+      "pagamento",
+      "criar cobrança",
+      "gerar"
+    ],
+    "resposta": "A cobrança é criada automaticamente quando o orçamento é aprovado. Ela tem o valor total do orçamento e vence na data de retirada."
+  },
+  {
+    "id": "fin-baixa",
+    "modulo": "Financeiro",
+    "pergunta": "Como registrar um pagamento recebido?",
+    "palavras_chave": [
+      "baixa",
+      "registrar pagamento",
+      "receber",
+      "pagou",
+      "dar baixa"
+    ],
+    "resposta": "Em Financeiro, localize a cobrança pendente e use Registrar pagamento. Informe a data do pagamento e a forma (Pix, Cartão, Boleto ou Dinheiro). A cobrança passa para Pago e entra no recebido do mês em que foi paga."
+  },
+  {
+    "id": "fin-status",
+    "modulo": "Financeiro",
+    "pergunta": "O que significam os status das cobranças?",
+    "palavras_chave": [
+      "status",
+      "pendente",
+      "pago",
+      "atrasado",
+      "cancelado"
+    ],
+    "resposta": "Pendente: ainda não foi paga e não venceu. Atrasado: pendente com vencimento já passado. Pago: o pagamento foi registrado. Cancelado: a cobrança foi cancelada junto com o orçamento."
+  },
+  {
+    "id": "fin-filtros",
+    "modulo": "Financeiro",
+    "pergunta": "Como filtrar as cobranças?",
+    "palavras_chave": [
+      "filtrar",
+      "filtro",
+      "buscar",
+      "listar atrasados"
+    ],
+    "resposta": "Na tela Financeiro, use os botões de status acima da tabela para ver só as pendentes, as atrasadas, as pagas ou todas."
+  },
+  {
+    "id": "prod-cadastro",
+    "modulo": "Produtos",
+    "pergunta": "Quais dados preencher ao cadastrar um produto?",
+    "palavras_chave": [
+      "cadastrar produto",
+      "campos",
+      "código",
+      "categoria",
+      "quantidade",
+      "diária"
+    ],
+    "resposta": "Informe código (único), nome, categoria, descrição, valor da diária, valor de reposição e a quantidade em estoque. O valor de reposição é o custo de repor o item se ele for perdido ou danificado."
+  },
+  {
+    "id": "prod-inativar",
+    "modulo": "Produtos",
+    "pergunta": "Como tirar um produto de circulação?",
+    "palavras_chave": [
+      "inativar",
+      "desativar",
+      "ativo",
+      "tirar da lista"
+    ],
+    "resposta": "Edite o produto e desmarque Ativo. Produtos inativos continuam no cadastro e nos orçamentos antigos, mas não aparecem para serem adicionados em novos orçamentos."
+  },
+  {
+    "id": "prod-excluir",
+    "modulo": "Produtos",
+    "pergunta": "Por que não consigo excluir um produto?",
+    "palavras_chave": [
+      "excluir produto",
+      "apagar produto",
+      "remover produto",
+      "bloqueado",
+      "problema"
+    ],
+    "resposta": "Um produto que já foi usado em algum orçamento não pode ser excluído, para não quebrar o histórico. Nesse caso, desmarque Ativo."
+  },
+  {
+    "id": "prod-estoque",
+    "modulo": "Produtos",
+    "pergunta": "Como a disponibilidade de um produto é calculada?",
+    "palavras_chave": [
+      "estoque",
+      "disponível",
+      "quantidade",
+      "unidades",
+      "período"
+    ],
+    "resposta": "A quantidade do produto é o total que a empresa possui. A disponibilidade é calculada por período: do total, o sistema desconta as quantidades dos orçamentos aprovados que se sobrepõem às datas. Isso é conferido na hora de aprovar."
+  },
+  {
+    "id": "cli-cadastro",
+    "modulo": "Clientes",
+    "pergunta": "Como cadastrar um cliente?",
+    "palavras_chave": [
+      "cadastrar cliente",
+      "novo cliente",
+      "pessoa física",
+      "pessoa jurídica",
+      "cnpj",
+      "cpf"
+    ],
+    "resposta": "Em Clientes, use Novo cliente. O nome é obrigatório. Informe também o tipo (pessoa física ou jurídica), documento, e-mail, telefone, cidade e observações."
+  },
+  {
+    "id": "cli-excluir",
+    "modulo": "Clientes",
+    "pergunta": "Por que não consigo excluir um cliente?",
+    "palavras_chave": [
+      "excluir cliente",
+      "apagar cliente",
+      "remover cliente",
+      "problema"
+    ],
+    "resposta": "Clientes que já têm orçamentos não podem ser excluídos, para manter o histórico e o financeiro. Só clientes sem nenhum orçamento podem ser removidos."
+  },
+  {
+    "id": "cli-busca",
+    "modulo": "Clientes",
+    "pergunta": "Como buscar um cliente?",
+    "palavras_chave": [
+      "buscar",
+      "pesquisar",
+      "procurar",
+      "filtro"
+    ],
+    "resposta": "Use o campo de busca no topo da lista de Clientes. Ele procura pelo nome, documento, e-mail ou cidade."
+  },
+  {
+    "id": "assist-oque",
+    "modulo": "Assistente",
+    "pergunta": "O que o assistente pode fazer?",
+    "palavras_chave": [
+      "assistente",
+      "ajuda",
+      "lumi",
+      "chat",
+      "robô",
+      "dúvidas"
+    ],
+    "resposta": "Eu respondo dúvidas de uso do sistema, como criar orçamentos, aprovar, registrar pagamentos ou cadastrar produtos. Mostro de qual assunto vem cada resposta e sugiro perguntas parecidas."
+  },
+  {
+    "id": "assist-dados",
+    "modulo": "Assistente",
+    "pergunta": "O assistente consegue dizer quantos orçamentos eu tenho?",
+    "palavras_chave": [
+      "quantos",
+      "números",
+      "consultar dados",
+      "total",
+      "listar"
+    ],
+    "resposta": "Ainda não. Por enquanto eu explico como usar as telas, mas não consulto os seus dados. Para ver números, use o Painel, a lista de Orçamentos ou o Financeiro."
+  },
+  {
+    "id": "demo-dados",
+    "modulo": "Versão de demonstração",
+    "pergunta": "Onde ficam os dados na versão de demonstração?",
+    "palavras_chave": [
+      "demo",
+      "demonstração",
+      "github pages",
+      "navegador",
+      "localstorage",
+      "salvar"
+    ],
+    "resposta": "Na versão de demonstração (GitHub Pages), tudo fica salvo no próprio navegador. Nada é enviado a um servidor, e outra pessoa ou outro navegador não vê as suas alterações."
+  },
+  {
+    "id": "demo-restaurar",
+    "modulo": "Versão de demonstração",
+    "pergunta": "Como voltar aos dados de exemplo?",
+    "palavras_chave": [
+      "restaurar",
+      "resetar",
+      "dados de exemplo",
+      "limpar",
+      "recomeçar"
+    ],
+    "resposta": "Na versão de demonstração, use Restaurar dados de exemplo no rodapé do menu lateral. Isso apaga o que você cadastrou e recarrega o conjunto inicial de clientes, produtos e orçamentos."
+  }
+]
