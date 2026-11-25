@@ -7,7 +7,7 @@ A versão de demonstração (só front-end, para o GitHub Pages) fica em outro r
 
 | Pasta | O que é |
 |-------|---------|
-| `versao-real/backend` | API Laravel 9 + banco próprio (SQLite ou MySQL) com dados de exemplo |
+| `versao-real/backend` | API Laravel 10 + banco próprio (SQLite ou MySQL) com dados de exemplo |
 | `versao-real/frontend` | Front React que usa a API Laravel |
 | `ia-api` | API Python da assistente Lumi (FastAPI), usada pelas duas versões |
 | `shared/seed.json` | Dados fictícios (fonte única), copiados para o backend e o front por `scripts/gerar_seed.py` |
