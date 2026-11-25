@@ -39,10 +39,25 @@ class ChatController extends Controller
 
     public function perguntar(Request $request): JsonResponse
     {
-        $dados = $request->validate(['pergunta' => 'required|string|min:2|max:500']);
+        $dados = $request->validate([
+            'pergunta' => 'required|string|min:2|max:500',
+            // Contexto da conversa: o front manda, o Laravel só repassa (a API Python não guarda nada).
+            'historico' => 'sometimes|nullable|array|max:6',
+            'historico.*' => 'nullable|string|max:500',
+            'ultimo_id' => 'sometimes|nullable|string|max:80',
+        ]);
+
+        $corpo = ['pergunta' => $dados['pergunta']];
+        $historico = array_values(array_filter($dados['historico'] ?? [], fn ($p) => is_string($p) && trim($p) !== ''));
+        if ($historico) {
+            $corpo['historico'] = $historico;
+        }
+        if (! empty($dados['ultimo_id'])) {
+            $corpo['ultimo_id'] = $dados['ultimo_id'];
+        }
 
         try {
-            $resposta = $this->api()->post('/chat', ['pergunta' => $dados['pergunta']]);
+            $resposta = $this->api()->post('/chat', $corpo);
 
             if ($resposta->successful()) {
                 return response()->json($resposta->json());

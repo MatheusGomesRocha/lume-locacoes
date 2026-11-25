@@ -78,4 +78,33 @@ class ChatApiTest extends TestCase
 
         $this->getJson('/api/chat/sugestoes')->assertOk()->assertExactJson([]);
     }
+
+    public function test_repassa_o_contexto_da_conversa_para_a_api(): void
+    {
+        config(['services.ia.url' => 'http://ia.test']);
+        Http::fake(['ia.test/chat' => Http::response(['encontrou' => true, 'resposta' => 'ok', 'fonte' => null, 'confianca' => 1, 'relacionadas' => []])]);
+
+        $this->postJson('/api/chat', ['pergunta' => 'mas eu quero excluir', 'historico' => ['e pra excluir produtos?', '  '], 'ultimo_id' => 'prod-excluir'])->assertOk();
+
+        Http::assertSent(fn ($r) => $r['pergunta'] === 'mas eu quero excluir'
+            && $r['historico'] === ['e pra excluir produtos?']
+            && $r['ultimo_id'] === 'prod-excluir');
+    }
+
+    public function test_sem_contexto_nao_manda_campos_extras(): void
+    {
+        config(['services.ia.url' => 'http://ia.test']);
+        Http::fake(['ia.test/chat' => Http::response(['encontrou' => true, 'resposta' => 'ok', 'fonte' => null, 'confianca' => 1, 'relacionadas' => []])]);
+
+        $this->postJson('/api/chat', ['pergunta' => 'Como criar um orçamento?', 'historico' => [], 'ultimo_id' => null])->assertOk();
+
+        Http::assertSent(fn ($r) => $r->data() === ['pergunta' => 'Como criar um orçamento?']);
+    }
+
+    public function test_valida_o_contexto(): void
+    {
+        $this->postJson('/api/chat', ['pergunta' => 'oi tudo', 'historico' => array_fill(0, 7, 'a')])->assertStatus(422)->assertJsonValidationErrors(['historico']);
+        $this->postJson('/api/chat', ['pergunta' => 'oi tudo', 'historico' => [str_repeat('a', 501)]])->assertStatus(422);
+        $this->postJson('/api/chat', ['pergunta' => 'oi tudo', 'ultimo_id' => str_repeat('x', 81)])->assertStatus(422);
+    }
 }

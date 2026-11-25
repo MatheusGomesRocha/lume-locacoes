@@ -24,7 +24,16 @@ Docs interativas: http://127.0.0.1:8001/docs
 |--------|-----------|-----------|
 | GET    | `/health` | Saúde do serviço (usado pelo Render) |
 | GET    | `/faq`    | Lista as perguntas da base (a tela usa para sugestões) |
-| POST   | `/chat`   | `{"pergunta": "..."}` → resposta, fonte, confiança e perguntas relacionadas |
+| POST   | `/chat`   | `{"pergunta": "...", "historico": [...], "ultimo_id": "..."}` → resposta, fonte, confiança, perguntas relacionadas e `usou_contexto` |
+
+### Contexto da conversa
+
+A API não guarda conversa. Para entender acompanhamentos como "mas eu quero excluir", quem chama envia
+`historico` (as últimas perguntas do usuário, no máximo 6) e `ultimo_id` (id da última resposta dada). Os dois são opcionais.
+
+Quando a pergunta está incompleta (poucos termos e sem assunto, ou sem ação), a busca soma os termos da pergunta
+anterior com peso menor e dá um pequeno bônus às respostas do mesmo módulo. Perguntas completas nunca são alteradas.
+`usou_contexto` é `true` quando isso mudou a melhor resposta.
 
 ## Variáveis de ambiente
 

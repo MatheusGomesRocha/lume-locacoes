@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from app.busca import BaseConhecimento, extrair_termos, normalizar, pede_dados_do_sistema, raiz
+from app.busca import BaseConhecimento, Contexto, extrair_termos, normalizar, pede_dados_do_sistema, raiz
 
 FAQ = Path(__file__).resolve().parent.parent / "data" / "faq.json"
 
@@ -123,3 +123,71 @@ def test_faq_ids_unicos_e_campos_preenchidos():
         assert i["pergunta"].endswith("?")
         assert len(i["resposta"]) > 40
         assert i["modulo"] and i["palavras_chave"]
+
+
+# ---------- busca com contexto da conversa ----------
+def ids(resultados):
+    return [r.id for r in resultados]
+
+
+def test_sem_contexto_a_pergunta_solta_acerta_o_assunto_errado(base):
+    """O problema que motivou o recurso: sozinha, 'quero excluir' cai em orçamentos."""
+    assert base.buscar("mas eu quero excluir")[0].id == "orc-excluir"
+
+
+def test_contexto_resolve_pergunta_sem_assunto(base):
+    ctx = Contexto(["mas e pra excluir produtos?"], "prod-excluir")
+    resultados, mudou = base.buscar_com_contexto("mas eu quero excluir", ctx)
+    assert resultados[0].id == "prod-excluir"
+    assert mudou is True
+
+
+def test_contexto_resolve_pergunta_sem_acao(base):
+    ctx = Contexto(["mas e pra excluir produtos?"], "prod-excluir")
+    resultados, _ = base.buscar_com_contexto("e para clientes?", ctx)
+    assert resultados[0].id == "cli-excluir"
+
+
+def test_assunto_citado_na_pergunta_vence_o_assunto_antigo(base):
+    ctx = Contexto(["como excluir produto?"], "prod-excluir")
+    resultados, _ = base.buscar_com_contexto("e para clientes?", ctx)
+    assert "produt" not in {t for r in resultados[:1] for t in extrair_termos(r.pergunta)}
+
+
+def test_pergunta_completa_nao_e_alterada_pelo_contexto(base):
+    ctx = Contexto(["mas e pra excluir produtos?"], "prod-excluir")
+    resultados, mudou = base.buscar_com_contexto("como aprovar um orçamento?", ctx)
+    assert resultados == base.buscar("como aprovar um orçamento?")
+    assert mudou is False
+
+
+def test_sem_contexto_ou_contexto_vazio_e_igual_a_busca_normal(base):
+    simples = base.buscar("quero excluir")
+    assert base.buscar_com_contexto("quero excluir", None) == (simples, False)
+    assert base.buscar_com_contexto("quero excluir", Contexto()) == (simples, False)
+
+
+def test_contexto_nao_inventa_resposta_para_pergunta_sem_termos_conhecidos(base):
+    ctx = Contexto(["como excluir produto?"], "prod-excluir")
+    resultados, mudou = base.buscar_com_contexto("e o prazo?", ctx)
+    assert resultados == [] and mudou is False
+
+
+def test_so_a_ultima_pergunta_anterior_conta(base):
+    ctx = Contexto(["como excluir produto?", "e para clientes?"], "cli-excluir")
+    resultados, _ = base.buscar_com_contexto("e se eu quiser cancelar?", ctx)
+    assert ids(resultados)[0] != "prod-excluir"
+
+
+def test_ultimo_id_sozinho_da_bonus_ao_mesmo_modulo(base):
+    sem, _ = base.buscar_com_contexto("excluir", None, limite=5)
+    com, _ = base.buscar_com_contexto("excluir", Contexto(ultimo_id="cli-cadastro"), limite=5)
+    score = lambda lista, i: next(r.score for r in lista if r.id == i)
+    assert score(com, "cli-excluir") > score(sem, "cli-excluir")
+    assert all(r.score <= 1.0 for r in com)
+
+
+def test_modulo_do_item(base):
+    assert base.modulo_do_item("prod-excluir") == "Produtos"
+    assert base.modulo_do_item("nao-existe") is None
+    assert base.modulo_do_item(None) is None

@@ -12,8 +12,9 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from typing import Annotated
 
-from app.busca import BaseConhecimento, pede_dados_do_sistema
+from app.busca import BaseConhecimento, Contexto, pede_dados_do_sistema
 from app.limite import LimitadorDeRequisicoes
 
 PASTA_DADOS = Path(__file__).resolve().parent.parent / "data"
@@ -46,6 +47,10 @@ _trava_log = threading.Lock()
 
 class PerguntaIn(BaseModel):
     pergunta: str = Field(min_length=2, max_length=500)
+    # Contexto opcional: o que o usuário perguntou antes e qual foi a última resposta dada.
+    # A API não guarda conversa; quem chama manda isso a cada pergunta.
+    historico: list[Annotated[str, Field(max_length=500)]] = Field(default_factory=list, max_length=6)
+    ultimo_id: str | None = Field(default=None, max_length=80)
 
 
 def exigir_token(x_api_token: str | None = Header(default=None)):
@@ -99,7 +104,8 @@ def listar_faq():
 @app.post("/chat", dependencies=[Depends(exigir_token), Depends(limitar)])
 def chat(dados: PerguntaIn):
     pergunta = dados.pergunta.strip()
-    resultados = base.buscar(pergunta, limite=4)
+    contexto = Contexto([p.strip() for p in dados.historico if p.strip()][-3:], dados.ultimo_id)
+    resultados, usou_contexto = base.buscar_com_contexto(pergunta, contexto, limite=4)
     melhor = resultados[0] if resultados else None
 
     if pede_dados_do_sistema(pergunta):
@@ -111,6 +117,7 @@ def chat(dados: PerguntaIn):
             "fonte": None,
             "confianca": 0.0,
             "relacionadas": _relacionadas(resultados, 0, 3),
+            "usou_contexto": False,
         }
 
     if melhor and melhor.score >= LIMITE_CONFIANCA:
@@ -120,6 +127,7 @@ def chat(dados: PerguntaIn):
             "fonte": {"id": melhor.id, "modulo": melhor.modulo, "pergunta": melhor.pergunta},
             "confianca": melhor.score,
             "relacionadas": _relacionadas(resultados, 1, 4),
+            "usou_contexto": usou_contexto,
         }
 
     registrar_sem_resposta(pergunta, melhor.score if melhor else 0.0)
@@ -129,4 +137,5 @@ def chat(dados: PerguntaIn):
         "fonte": None,
         "confianca": melhor.score if melhor else 0.0,
         "relacionadas": _relacionadas(resultados, 0, 3),
+        "usou_contexto": False,
     }

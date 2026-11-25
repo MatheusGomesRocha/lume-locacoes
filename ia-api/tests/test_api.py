@@ -16,6 +16,13 @@ def perguntar(texto, **kw):
     return r.json()
 
 
+def perguntar_com_contexto(texto, historico=None, ultimo_id=None):
+    corpo = {"pergunta": texto, "historico": historico or [], "ultimo_id": ultimo_id}
+    r = client.post("/chat", json=corpo)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
 def test_raiz_e_health():
     assert client.get("/").json()["docs"] == "/docs"
     saude = client.get("/health").json()
@@ -143,3 +150,44 @@ def test_registrar_sem_resposta_grava_uma_linha_json(log_sem_resposta):
     linhas = [json.loads(x) for x in log_sem_resposta.read_text(encoding="utf-8").splitlines()]
     assert [l["pergunta"] for l in linhas] == ["pergunta de teste", "outra"]
     assert linhas[1]["tipo"] == "dados" and linhas[0]["melhor_score"] == 0.12
+
+
+# ---------- contexto da conversa ----------
+def test_chat_entende_o_acompanhamento_da_conversa():
+    primeira = perguntar("mas e pra excluir produtos?")
+    assert primeira["fonte"]["id"] == "prod-excluir"
+    segunda = perguntar_com_contexto("mas eu quero excluir", ["mas e pra excluir produtos?"], primeira["fonte"]["id"])
+    assert segunda["fonte"]["id"] == "prod-excluir"
+    assert segunda["usou_contexto"] is True
+
+
+def test_chat_sem_contexto_continua_funcionando():
+    r = perguntar("mas eu quero excluir")
+    assert r["fonte"]["id"] == "orc-excluir"
+    assert r["usou_contexto"] is False
+
+
+def test_chat_pergunta_completa_ignora_o_historico():
+    r = perguntar_com_contexto("Como criar um orçamento?", ["como excluir produto?"], "prod-excluir")
+    assert r["fonte"]["id"] == "orc-criar" and r["usou_contexto"] is False
+
+
+def test_chat_aceita_ultimo_id_desconhecido():
+    r = perguntar_com_contexto("Como criar um orçamento?", ["oi"], "id-que-nao-existe")
+    assert r["encontrou"] is True
+
+
+def test_chat_valida_o_tamanho_do_historico():
+    assert client.post("/chat", json={"pergunta": "oi tudo", "historico": ["a"] * 7}).status_code == 422
+    assert client.post("/chat", json={"pergunta": "oi tudo", "historico": ["a" * 501]}).status_code == 422
+    assert client.post("/chat", json={"pergunta": "oi tudo", "ultimo_id": "x" * 81}).status_code == 422
+
+
+def test_chat_ignora_historico_em_branco():
+    r = perguntar_com_contexto("Como criar um orçamento?", ["   ", ""])
+    assert r["fonte"]["id"] == "orc-criar"
+
+
+def test_resposta_de_dados_e_de_nao_encontrado_trazem_usou_contexto_falso():
+    assert perguntar("quantos orçamentos eu tenho?")["usou_contexto"] is False
+    assert perguntar("receita de bolo de chocolate")["usou_contexto"] is False

@@ -9,7 +9,7 @@ import math
 import re
 import unicodedata
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 # Palavras que não ajudam a diferenciar uma pergunta da outra.
@@ -93,6 +93,29 @@ def extrair_termos(texto: str) -> list[str]:
     return termos
 
 
+# Assunto de cada módulo, em termos já normalizados (raiz). Serve para saber se a pergunta
+# já diz de que coisa se está falando ("produtos", "clientes") ou se só traz a ação ("excluir").
+ASSUNTOS = {
+    "Produtos": {raiz("produto"), raiz("catalogo")},
+    "Clientes": {raiz("cliente")},
+    "Orçamentos": {raiz("orcamento")},
+    "Financeiro": {raiz("pagamento"), raiz("financeiro")},
+    "Painel": {raiz("painel"), raiz("dashboard")},
+}
+TODOS_OS_ASSUNTOS = set().union(*ASSUNTOS.values())
+
+PESO_PERGUNTA_ANTERIOR = 0.6  # a pergunta anterior ajuda, mas a atual continua mandando
+BONUS_MESMO_ASSUNTO = 1.15    # empurra respostas do mesmo módulo da conversa
+MAX_TERMOS_PARA_CONTEXTO = 2  # perguntas com mais termos conhecidos que isso se bastam sozinhas
+
+
+@dataclass
+class Contexto:
+    """O que veio antes na conversa. A API não guarda nada: o navegador manda isto a cada pergunta."""
+    perguntas_anteriores: list[str] = field(default_factory=list)  # só o que o usuário escreveu, da mais antiga à mais nova
+    ultimo_id: str | None = None  # id da última resposta que o assistente deu
+
+
 @dataclass
 class Resultado:
     id: str
@@ -129,9 +152,8 @@ class BaseConhecimento:
         self.vetores = [{t: q * self.idf[t] for t, q in c.items()} for c in contagens]
         self.normas = [math.sqrt(sum(v * v for v in vet.values())) or 1.0 for vet in self.vetores]
 
-    def buscar(self, pergunta: str, limite: int = 3) -> list[Resultado]:
-        termos = Counter(extrair_termos(pergunta))
-        consulta = {t: q * self.idf[t] for t, q in termos.items() if t in self.idf}
+    def _pontuar(self, consulta: dict[str, float], limite: int, assunto: str | None = None) -> list[Resultado]:
+        """Cosseno entre a consulta (termo -> peso) e cada item. `assunto` dá um bônus ao módulo da conversa."""
         if not consulta:
             return []
         norma_consulta = math.sqrt(sum(v * v for v in consulta.values()))
@@ -140,10 +162,60 @@ class BaseConhecimento:
         for item, vetor, norma in zip(self.itens, self.vetores, self.normas):
             produto = sum(v * vetor.get(t, 0.0) for t, v in consulta.items())
             score = produto / (norma * norma_consulta)
+            if score > 0 and assunto and item["modulo"] == assunto:
+                score = min(1.0, score * BONUS_MESMO_ASSUNTO)
             if score > 0:
                 resultados.append(Resultado(item["id"], item["modulo"], item["pergunta"], item["resposta"], round(score, 4)))
         resultados.sort(key=lambda r: r.score, reverse=True)
         return resultados[:limite]
+
+    def _consulta(self, pergunta: str) -> dict[str, float]:
+        termos = Counter(extrair_termos(pergunta))
+        return {t: q * self.idf[t] for t, q in termos.items() if t in self.idf}
+
+    def buscar(self, pergunta: str, limite: int = 3) -> list[Resultado]:
+        return self._pontuar(self._consulta(pergunta), limite)
+
+    def modulo_do_item(self, item_id: str | None) -> str | None:
+        return next((i["modulo"] for i in self.itens if i["id"] == item_id), None)
+
+    def buscar_com_contexto(self, pergunta: str, contexto: Contexto | None, limite: int = 3) -> tuple[list[Resultado], bool]:
+        """Busca levando a conversa em conta. Devolve (resultados, o contexto mudou a melhor resposta?).
+
+        Só entra em ação quando a pergunta está "incompleta": tem poucos termos conhecidos e falta o
+        assunto ("mas eu quero excluir") ou a ação ("e para clientes?"). Aí:
+          1. os termos da pergunta anterior entram na busca, com peso menor;
+          2. respostas do módulo da conversa ganham um pequeno bônus.
+        Pergunta completa ("como aprovar um orçamento?") nunca é alterada pelo que veio antes.
+        """
+        sem_contexto = self.buscar(pergunta, limite)
+        if contexto is None or not (contexto.perguntas_anteriores or contexto.ultimo_id):
+            return sem_contexto, False
+
+        consulta = self._consulta(pergunta)
+        conhecidos = set(consulta)
+        assuntos_citados = {m for m, termos in ASSUNTOS.items() if conhecidos & termos}
+        tem_acao = bool(conhecidos - TODOS_OS_ASSUNTOS)
+        incompleta = bool(conhecidos) and len(conhecidos) <= MAX_TERMOS_PARA_CONTEXTO and (not assuntos_citados or not tem_acao)
+        if not incompleta:
+            return sem_contexto, False
+
+        # Se a pergunta cita outro assunto ("e para clientes?"), ele manda; os termos de assunto antigos saem.
+        assunto = next(iter(assuntos_citados)) if len(assuntos_citados) == 1 else None
+        if assunto is None and not assuntos_citados:
+            assunto = self.modulo_do_item(contexto.ultimo_id)
+
+        if contexto.perguntas_anteriores:
+            for termo, qtd in Counter(extrair_termos(contexto.perguntas_anteriores[-1])).items():
+                if termo not in self.idf or termo in consulta:
+                    continue
+                if assuntos_citados and termo in TODOS_OS_ASSUNTOS:
+                    continue
+                consulta[termo] = qtd * self.idf[termo] * PESO_PERGUNTA_ANTERIOR
+
+        com_contexto = self._pontuar(consulta, limite, assunto)
+        mudou = bool(com_contexto) and (not sem_contexto or com_contexto[0].id != sem_contexto[0].id)
+        return com_contexto, mudou
 
 
 # Perguntas que pedem DADOS do sistema ("quantos...", "liste...") não são dúvidas
