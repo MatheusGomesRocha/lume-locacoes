@@ -26,11 +26,14 @@ def test_fontes_esperadas_existem_no_faq():
             assert f is None or f in FAQ_IDS, (c["id"], f)
 
 
+LEITURAS_DO_AGENTE = {"localizar_clientes", "localizar_produtos", "verificar_disponibilidade"}  # o agente conversacional consulta antes de cadastrar
+
+
 def test_ferramentas_esperadas_existem():
     for c in CASOS:
         e = c["espera"]
         for f in (e.get("ferramenta") if isinstance(e.get("ferramenta"), list) else [e.get("ferramenta")]) + e.get("ferramenta_proibida", []):
-            assert f is None or f in ferramentas.TODAS, (c["id"], f)
+            assert f is None or f in ferramentas.TODAS or f in LEITURAS_DO_AGENTE, (c["id"], f)
 
 
 def test_o_conjunto_cobre_todos_os_grupos_e_todas_as_ferramentas():

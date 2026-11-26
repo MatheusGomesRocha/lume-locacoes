@@ -428,12 +428,9 @@
   "pergunta": "quero cadastrar um cliente chamado Padaria Sol, é uma empresa",
   "hoje": "2026-11-25",
   "espera": {
-   "ferramenta": "cadastrar_cliente",
+   "ferramenta": "localizar_clientes",
    "args_texto": {
-    "nome": "padaria sol"
-   },
-   "args_contem": {
-    "tipo": "PJ"
+    "busca": "padaria sol"
    }
   },
   "precisa_modelo": true
@@ -444,10 +441,9 @@
   "pergunta": "cadastra a cliente Maria Souza, de Sobral",
   "hoje": "2026-11-25",
   "espera": {
-   "ferramenta": "cadastrar_cliente",
+   "ferramenta": "localizar_clientes",
    "args_texto": {
-    "nome": "maria souza",
-    "cidade": "sobral"
+    "busca": "maria souza"
    }
   },
   "precisa_modelo": true
@@ -475,16 +471,10 @@
   "pergunta": "criar orçamento para o Hotel Pôr do Sol, evento Casamento, retirada 2026-12-12, 10 cadeiras tiffany",
   "hoje": "2026-11-25",
   "espera": {
-   "ferramenta": "cadastrar_orcamento",
+   "ferramenta": "localizar_clientes",
    "args_texto": {
-    "cliente": "hotel"
-   },
-   "args_contem": {
-    "data_retirada": "2026-12-12"
-   },
-   "args_presentes": [
-    "itens"
-   ]
+    "busca": "hotel"
+   }
   },
   "precisa_modelo": true
  },
@@ -515,6 +505,22 @@
     "nome",
     "codigo",
     "valor_diaria"
+   ]
+  },
+  "precisa_modelo": true
+ },
+ {
+  "id": "cadastro-07",
+  "grupo": "cadastro",
+  "pergunta": "quero criar um orçamento",
+  "hoje": "2026-11-25",
+  "espera": {
+   "ferramenta": "cadastrar_orcamento",
+   "args_ausentes": [
+    "cliente",
+    "evento",
+    "data_retirada",
+    "itens"
    ]
   },
   "precisa_modelo": true
