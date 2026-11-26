@@ -14,6 +14,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         // Limite de 60 requisições por minuto na API (o limitador "api" está no AppServiceProvider).
         $middleware->api(prepend: ['throttle:api']);
+        $middleware->alias([
+            'autenticado' => \App\Http\Middleware\Autenticar::class,
+            'pode' => \App\Http\Middleware\ExigePermissao::class,
+            'admin' => \App\Http\Middleware\ExigeAdmin::class,
+            'master' => \App\Http\Middleware\ExigeMaster::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // RegraDeNegocioException já sabe se transformar em JSON (ver o próprio arquivo).

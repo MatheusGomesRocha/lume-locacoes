@@ -20,6 +20,8 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->call(AcessoSeeder::class);
+
         $dados = json_decode(file_get_contents(database_path('seeders/data/seed.json')), true, 512, JSON_THROW_ON_ERROR);
         $hoje = Carbon::today();
 

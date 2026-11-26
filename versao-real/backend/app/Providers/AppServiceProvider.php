@@ -16,6 +16,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // 10 tentativas de login por minuto por e-mail + IP: trava adivinhação de senha
+        RateLimiter::for('login', fn (Request $request) => Limit::perMinute(10)->by(mb_strtolower((string) $request->input('email')).'|'.$request->ip()));
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(60)->by($request->user()?->id ?: $request->ip()));
     }
 }

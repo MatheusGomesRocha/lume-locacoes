@@ -33,9 +33,25 @@ e devolve a resposta. Suba também a pasta `ia-api` para o chat funcionar. Se el
 
 Essas regras existem também em `versao-real/frontend/src/lib/regras.ts` (usadas pela demonstração). Mudou uma, mude as duas.
 
+## Acesso: login, níveis e permissões
+
+- **Login** em `POST /api/login` (`email`, `senha`) devolve um `token`. Todas as outras rotas, menos `GET /api/health`, exigem
+  `Authorization: Bearer <token>`. O banco guarda só o hash do token (tabela `tokens_acesso`); vale 7 dias, `POST /api/logout` revoga.
+  Login tem limite de 10 tentativas por minuto por e-mail + IP e a mesma resposta para e-mail inexistente e senha errada.
+- **Níveis**: `master` (um só, criado pelo seeder), `admin` e `usuario`.
+  - O master tem todas as permissões, num grupo "Master" que ninguém altera ou exclui, e só ele mexe nos próprios dados.
+    Cria e edita grupos e promove administradores.
+  - O admin cadastra e edita só usuários comuns (sempre criados como `usuario`) e escolhe o grupo deles; não mexe no master nem em outros admins.
+  - Todo usuário tem **exatamente um grupo** (obrigatório). Grupo é uma lista de permissões `modulo.acao` (catálogo em `app/Support/Acesso.php`).
+- **Verificação**: cada rota tem `->middleware('pode:modulo.acao')` (basta uma das listadas). A permissão vem do grupo a cada requisição,
+  então mudar o grupo, desativar o usuário ou trocar a senha vale na hora. `usuarios.*` só tem efeito para admin e master.
+- **Primeiro acesso**: o seeder cria o master com `MASTER_EMAIL` e `MASTER_SENHA` (ver `.env.example`). Em produção, sem `MASTER_SENHA` nenhum usuário é criado.
+  Fora de produção vale `master@lume.com` / `lume1234`, com contas de exemplo (`admin@`, `atendimento@`, `financeiro@lume.com`, mesma senha).
+
 ## Endpoints
 
-`GET /api/dashboard` · `apiResource` de `clientes`, `produtos`, `orcamentos` · `POST orcamentos/{id}/(enviar|aprovar|finalizar|cancelar)` ·
-`GET pagamentos?status=(pendente|atrasado|pago|cancelado)` · `POST pagamentos/{id}/baixar` · `GET chat/sugestoes` · `POST chat`.
+Públicos: `GET health`, `POST login`. Logado: `POST logout` · `GET|PUT eu` (minha conta) · `GET dashboard` · `clientes`, `produtos`, `orcamentos` (CRUD) ·
+`POST orcamentos/{id}/(enviar|aprovar|finalizar|cancelar)` · `GET pagamentos?status=(pendente|atrasado|pago|cancelado)` · `POST pagamentos/{id}/baixar` ·
+`GET chat/sugestoes` · `POST chat` · `chat-logs` (registro das conversas) · `usuarios` (CRUD, admin/master) · `grupos` (listar: admin/master; criar, editar, excluir: master).
 
-Erros de regra voltam como `{"message": "...", "detalhes": [...]}` (409 ou 422); validação como o padrão do Laravel (`errors`).
+Erros de regra voltam como `{"message": "...", "detalhes": [...]}` (401, 403, 409 ou 422); validação como o padrão do Laravel (`errors`).

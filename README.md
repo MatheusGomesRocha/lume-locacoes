@@ -53,14 +53,14 @@ O push na `main` do repositório da demo dispara o CI/CD que testa e publica.
 
 | Parte | Comando | Testes |
 |-------|---------|--------|
-| `ia-api` | `pytest -q` | 73 |
-| Laravel | `php artisan test` | 82 |
-| React | `npm test` | 138 |
+| `ia-api` | `pytest -q` | 233 |
+| Laravel | `php artisan test` | rodado no CI |
+| React | `npm test` | 222 |
 
 O workflow `Testes` roda tudo a cada push.
 
 ## Limites desta versão
 
-- **Sem login.** Qualquer pessoa que alcance a API mexe nos dados. Antes de expor o Laravel na internet, adicione autenticação.
+- **Login e permissões** (master, admin, usuário, grupos por módulo): na versão real a API confere o token e a permissão em cada rota. Na demonstração tudo roda no navegador e só ilustra o fluxo; não é segurança de verdade. Defina `MASTER_EMAIL` e `MASTER_SENHA` antes de publicar o Laravel (detalhes em `versao-real/backend/README.md`).
 - A demonstração guarda dados só no navegador de quem usa e começa com os mesmos dados fictícios (há o botão "Restaurar dados de exemplo").
-- A Lumi só explica **como usar** o sistema; ela não lê valores ou listas dele.
+- A Lumi explica como usar o sistema e, com permissão, consulta números, abre formulários de cadastro e pede confirmação para excluir. Ela só faz o que o usuário logado poderia fazer nas telas.

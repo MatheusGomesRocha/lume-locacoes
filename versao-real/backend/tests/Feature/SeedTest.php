@@ -29,6 +29,25 @@ class SeedTest extends TestCase
         $this->assertSame(19, Pagamento::count());
     }
 
+    public function test_cria_o_master_com_o_grupo_master_e_contas_de_exemplo(): void
+    {
+        $master = \App\Models\Usuario::where('email', 'master@lume.com')->firstOrFail();
+
+        $this->assertSame('master', $master->papel);
+        $this->assertTrue($master->grupo->sistema);
+        $this->assertSame(\App\Support\Acesso::todas(), $master->grupo->permissoes);
+        $this->assertSame(['admin', 'usuario', 'usuario'], \App\Models\Usuario::whereIn('email', ['admin@lume.com', 'atendimento@lume.com', 'financeiro@lume.com'])->orderBy('id')->pluck('papel')->all());
+    }
+
+    public function test_rodar_o_seed_de_novo_nao_duplica_acessos(): void
+    {
+        $antes = \App\Models\Usuario::count();
+        $this->seed(\Database\Seeders\AcessoSeeder::class);
+
+        $this->assertSame($antes, \App\Models\Usuario::count());
+        $this->assertSame(1, \App\Models\Grupo::where('sistema', true)->count());
+    }
+
     public function test_totais_do_orcamento_batem_com_as_regras(): void
     {
         foreach (Orcamento::with('itens')->get() as $o) {

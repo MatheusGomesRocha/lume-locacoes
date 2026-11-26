@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ChatApiTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_repassa_a_pergunta_para_a_api_python_e_devolve_a_resposta(): void
     {
         Http::fake(['ia.test/chat' => Http::response(['encontrou' => true, 'resposta' => 'Abra Orçamentos.', 'fonte' => 'orc-criar', 'confianca' => 0.8, 'relacionadas' => []])]);
