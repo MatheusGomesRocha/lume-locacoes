@@ -128,9 +128,30 @@ def chat(dados: PerguntaIn):
             "gerada_por_llm": False,
         }
 
+    # A conversa é sobre um assunto (ex.: produtos) e a pergunta, lida sozinha, não casa com nada desse assunto
+    # (ex.: "e para cancelar?"): a resposta só pareceria certa pelos termos emprestados da pergunta anterior.
+    # Melhor admitir que a ajuda não cobre isso do que responder sobre a coisa errada.
+    assunto = base.assunto_da_conversa(pergunta, contexto)
+    if assunto and melhor:
+        solta = base.buscar(pergunta, limite=len(base.itens))
+        if not any(r.modulo == assunto and r.score >= LIMITE_CONFIANCA for r in solta):
+            registrar_sem_resposta(pergunta, melhor.score, tipo="assunto")
+            aviso = f"Não encontrei isso sobre {assunto.lower()} na ajuda."
+            if melhor.modulo != assunto:
+                aviso += f" Se você quis perguntar sobre {melhor.modulo.lower()}, escreva a pergunta citando o assunto."
+            return {
+                "encontrou": False,
+                "resposta": aviso,
+                "fonte": None,
+                "confianca": melhor.score,
+                "relacionadas": _relacionadas(resultados, 0, 3),
+                "usou_contexto": True,
+                "gerada_por_llm": False,
+            }
+
     if melhor and melhor.score >= LIMITE_CONFIANCA:
-        trechos = [(r.pergunta, r.resposta) for r in resultados if r.score >= NOTA_MINIMA_DO_TRECHO]
-        redigida = gerar_resposta(provedor_llm, limitador_llm, pergunta, contexto.perguntas_anteriores, trechos)
+        trechos = [(r.modulo, r.pergunta, r.resposta) for r in resultados if r.score >= NOTA_MINIMA_DO_TRECHO]
+        redigida = gerar_resposta(provedor_llm, limitador_llm, pergunta, contexto.perguntas_anteriores, trechos, assunto or base.modulo_do_item(contexto.ultimo_id))
         return {
             "encontrou": True,
             "resposta": redigida or melhor.resposta,

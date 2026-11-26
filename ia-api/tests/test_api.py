@@ -262,3 +262,38 @@ def test_llm_nao_e_chamado_para_pedido_de_dados(com_llm):
     p = com_llm(ProvedorFalso())
     r = perguntar("quantos orçamentos eu tenho?")
     assert r["gerada_por_llm"] is False and p.chamadas == []
+
+
+# ---------- assunto da conversa na API ----------
+def test_acompanhamento_sobre_produtos_responde_sobre_produtos():
+    r = perguntar_com_contexto("e para editar?", ["como eu excluir produtos?"], "prod-excluir")
+    assert r["fonte"]["id"] == "prod-editar"
+
+
+def test_acompanhamento_que_so_existe_em_outro_assunto_nao_responde_com_ele(log_sem_resposta):
+    r = perguntar_com_contexto("e para cancelar?", ["como eu excluir produtos?"], "prod-excluir")
+    assert r["encontrou"] is False and r["fonte"] is None and r["gerada_por_llm"] is False
+    assert "produtos" in r["resposta"] and "orçamentos" in r["resposta"]
+    assert json.loads(log_sem_resposta.read_text().splitlines()[-1])["tipo"] == "assunto"
+
+
+def test_assunto_citado_na_pergunta_nao_e_bloqueado():
+    r = perguntar_com_contexto("e para clientes?", ["como eu excluir produtos?"], "prod-excluir")
+    assert r["fonte"]["id"] == "cli-excluir"
+
+
+def test_pergunta_completa_de_outro_assunto_nao_e_bloqueada():
+    r = perguntar_com_contexto("como aprovar um orçamento?", ["como eu excluir produtos?"], "prod-excluir")
+    assert r["fonte"]["id"] == "orc-aprovar"
+
+
+def test_bloqueio_de_assunto_nao_chama_o_llm(com_llm):
+    p = com_llm(ProvedorFalso())
+    perguntar_com_contexto("e para cancelar?", ["como eu excluir produtos?"], "prod-excluir")
+    assert p.chamadas == []
+
+
+def test_llm_recebe_o_assunto_da_conversa(com_llm):
+    p = com_llm(ProvedorFalso())
+    perguntar_com_contexto("e para editar?", ["como eu excluir produtos?"], "prod-excluir")
+    assert "ASSUNTO DA CONVERSA: Produtos" in p.chamadas[0] and "assunto: Produtos" in p.chamadas[0]

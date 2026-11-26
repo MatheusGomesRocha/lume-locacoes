@@ -191,3 +191,29 @@ def test_modulo_do_item(base):
     assert base.modulo_do_item("prod-excluir") == "Produtos"
     assert base.modulo_do_item("nao-existe") is None
     assert base.modulo_do_item(None) is None
+
+
+# ---------- assunto da conversa ----------
+def test_faq_tem_como_editar_produto_e_cliente(base):
+    assert base.buscar("como editar um produto")[0].id == "prod-editar"
+    assert base.buscar("como editar um cliente")[0].id == "cli-editar"
+
+
+def test_acompanhamento_de_editar_fica_no_assunto_da_conversa(base):
+    ctx = Contexto(["como eu excluir produtos?"], "prod-excluir")
+    assert base.buscar_com_contexto("e para editar?", ctx)[0][0].id == "prod-editar"
+    ctx = Contexto(["como criar um orçamento?"], "orc-criar")
+    assert base.buscar_com_contexto("e para editar?", ctx)[0][0].id == "orc-editar"
+
+
+def test_assunto_da_conversa_so_existe_para_pergunta_incompleta(base):
+    ctx = Contexto(["como eu excluir produtos?"], "prod-excluir")
+    assert base.assunto_da_conversa("e para editar?", ctx) == "Produtos"
+    assert base.assunto_da_conversa("e para clientes?", ctx) == "Clientes"  # o assunto citado vence
+    assert base.assunto_da_conversa("como aprovar um orçamento?", ctx) is None
+    assert base.assunto_da_conversa("e para editar?", None) is None
+    assert base.assunto_da_conversa("e o prazo?", ctx) is None
+
+
+def test_assunto_da_conversa_ignora_modulos_que_nao_sao_assunto(base):
+    assert base.assunto_da_conversa("e para editar?", Contexto(ultimo_id="assist-o-que-faz")) is None

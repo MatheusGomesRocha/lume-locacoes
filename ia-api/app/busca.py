@@ -179,31 +179,29 @@ class BaseConhecimento:
     def modulo_do_item(self, item_id: str | None) -> str | None:
         return next((i["modulo"] for i in self.itens if i["id"] == item_id), None)
 
-    def buscar_com_contexto(self, pergunta: str, contexto: Contexto | None, limite: int = 3) -> tuple[list[Resultado], bool]:
-        """Busca levando a conversa em conta. Devolve (resultados, o contexto mudou a melhor resposta?).
+    def _avaliar_contexto(self, pergunta: str, contexto: Contexto | None) -> tuple[dict[str, float], str | None, bool]:
+        """Devolve (consulta, assunto da conversa, pergunta está incompleta?).
 
-        Só entra em ação quando a pergunta está "incompleta": tem poucos termos conhecidos e falta o
-        assunto ("mas eu quero excluir") ou a ação ("e para clientes?"). Aí:
-          1. os termos da pergunta anterior entram na busca, com peso menor;
-          2. respostas do módulo da conversa ganham um pequeno bônus.
-        Pergunta completa ("como aprovar um orçamento?") nunca é alterada pelo que veio antes.
+        "Incompleta" = poucos termos conhecidos e falta o assunto ("mas eu quero excluir") ou a ação
+        ("e para clientes?"). Só nesse caso o que veio antes na conversa é usado.
         """
-        sem_contexto = self.buscar(pergunta, limite)
-        if contexto is None or not (contexto.perguntas_anteriores or contexto.ultimo_id):
-            return sem_contexto, False
-
         consulta = self._consulta(pergunta)
+        if contexto is None or not (contexto.perguntas_anteriores or contexto.ultimo_id):
+            return consulta, None, False
+
         conhecidos = set(consulta)
         assuntos_citados = {m for m, termos in ASSUNTOS.items() if conhecidos & termos}
         tem_acao = bool(conhecidos - TODOS_OS_ASSUNTOS)
         incompleta = bool(conhecidos) and len(conhecidos) <= MAX_TERMOS_PARA_CONTEXTO and (not assuntos_citados or not tem_acao)
         if not incompleta:
-            return sem_contexto, False
+            return consulta, None, False
 
-        # Se a pergunta cita outro assunto ("e para clientes?"), ele manda; os termos de assunto antigos saem.
+        # Se a pergunta cita um assunto ("e para clientes?"), ele manda; senão vale o da última resposta.
         assunto = next(iter(assuntos_citados)) if len(assuntos_citados) == 1 else None
         if assunto is None and not assuntos_citados:
             assunto = self.modulo_do_item(contexto.ultimo_id)
+        if assunto not in ASSUNTOS:
+            assunto = None
 
         if contexto.perguntas_anteriores:
             for termo, qtd in Counter(extrair_termos(contexto.perguntas_anteriores[-1])).items():
@@ -212,7 +210,24 @@ class BaseConhecimento:
                 if assuntos_citados and termo in TODOS_OS_ASSUNTOS:
                     continue
                 consulta[termo] = qtd * self.idf[termo] * PESO_PERGUNTA_ANTERIOR
+        return consulta, assunto, True
 
+    def assunto_da_conversa(self, pergunta: str, contexto: Contexto | None) -> str | None:
+        """Módulo de que a conversa está tratando, quando a pergunta depende do contexto; senão None."""
+        _, assunto, incompleta = self._avaliar_contexto(pergunta, contexto)
+        return assunto if incompleta else None
+
+    def buscar_com_contexto(self, pergunta: str, contexto: Contexto | None, limite: int = 3) -> tuple[list[Resultado], bool]:
+        """Busca levando a conversa em conta. Devolve (resultados, o contexto mudou a melhor resposta?).
+
+        Só entra em ação quando a pergunta está incompleta (ver `_avaliar_contexto`): os termos da pergunta
+        anterior entram com peso menor e respostas do módulo da conversa ganham um pequeno bônus.
+        Pergunta completa ("como aprovar um orçamento?") nunca é alterada pelo que veio antes.
+        """
+        sem_contexto = self.buscar(pergunta, limite)
+        consulta, assunto, incompleta = self._avaliar_contexto(pergunta, contexto)
+        if not incompleta:
+            return sem_contexto, False
         com_contexto = self._pontuar(consulta, limite, assunto)
         mudou = bool(com_contexto) and (not sem_contexto or com_contexto[0].id != sem_contexto[0].id)
         return com_contexto, mudou

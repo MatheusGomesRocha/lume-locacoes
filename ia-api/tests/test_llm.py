@@ -9,7 +9,7 @@ from app import llm
 from app.llm import (ErroLLM, LimitadorDiario, ProvedorGemini, criar_provedor_do_ambiente, gerar_resposta,
                      limite_diario_do_ambiente, montar_pergunta)
 
-TRECHOS = [("Como excluir um orçamento?", "Só rascunho ou cancelado."), ("Como cancelar?", "Use o botão Cancelar.")]
+TRECHOS = [("Orçamentos", "Como excluir um orçamento?", "Só rascunho ou cancelado."), ("Orçamentos", "Como cancelar?", "Use o botão Cancelar.")]
 
 
 def gemini(handler, **kw):
@@ -131,8 +131,8 @@ def test_limite_diario_do_ambiente(monkeypatch):
 def test_prompt_traz_trechos_historico_e_pergunta():
     texto = montar_pergunta("e para clientes?", ["como excluir produto?"], TRECHOS)
     assert "como excluir produto?" in texto
-    assert "[1] Pergunta: Como excluir um orçamento?" in texto and "Resposta: Só rascunho ou cancelado." in texto
-    assert "[2] Pergunta: Como cancelar?" in texto
+    assert "Trecho 1 (assunto: Orçamentos) Pergunta: Como excluir um orçamento?" in texto and "Resposta: Só rascunho ou cancelado." in texto
+    assert "Trecho 2 (assunto: Orçamentos) Pergunta: Como cancelar?" in texto
     assert texto.rstrip().endswith("PERGUNTA ATUAL: e para clientes?")
 
 
@@ -141,9 +141,25 @@ def test_prompt_sem_historico_nao_tem_secao_de_conversa():
 
 
 def test_prompt_limita_a_quantidade_de_trechos():
-    muitos = [(f"p{i}", f"r{i}") for i in range(10)]
+    muitos = [("Produtos", f"p{i}", f"r{i}") for i in range(10)]
     texto = montar_pergunta("x", [], muitos)
-    assert f"[{llm.MAX_TRECHOS}]" in texto and f"[{llm.MAX_TRECHOS + 1}]" not in texto
+    assert f"Trecho {llm.MAX_TRECHOS} " in texto and f"Trecho {llm.MAX_TRECHOS + 1} " not in texto
+
+
+def test_prompt_traz_o_assunto_da_conversa_so_quando_ha():
+    assert "ASSUNTO DA CONVERSA: Produtos" in montar_pergunta("e para editar?", ["como excluir produto?"], TRECHOS, "Produtos")
+    assert "ASSUNTO DA CONVERSA" not in montar_pergunta("oi", [], TRECHOS)
+
+
+def test_instrucoes_pedem_estilo_limpo_e_cuidado_com_assunto_trocado():
+    assert "Não cumprimente" in llm.INSTRUCOES and "[1]" in llm.INSTRUCOES
+    assert "ASSUNTO DA CONVERSA" in llm.INSTRUCOES
+
+
+def test_gerar_resposta_repassa_o_assunto_ao_modelo():
+    p = Falso()
+    gerar_resposta(p, LimitadorDiario(5), "e para editar?", ["como excluir produto?"], TRECHOS, "Produtos")
+    assert "ASSUNTO DA CONVERSA: Produtos" in p.chamadas[0][1]
 
 
 def test_instrucoes_mandam_usar_so_os_trechos_e_ignorar_ordens_do_usuario():

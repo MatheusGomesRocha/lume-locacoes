@@ -303,6 +303,20 @@
     "resposta": "Informe código (único), nome, categoria, descrição, valor da diária, valor de reposição e a quantidade em estoque. O valor de reposição é o custo de repor o item se ele for perdido ou danificado."
   },
   {
+    "id": "prod-editar",
+    "modulo": "Produtos",
+    "pergunta": "Como editar um produto?",
+    "palavras_chave": [
+      "editar produto",
+      "alterar produto",
+      "mudar preço",
+      "atualizar produto",
+      "lápis",
+      "corrigir"
+    ],
+    "resposta": "Em Produtos, clique no lápis na linha do produto, altere os dados e use Salvar produto. Mudar o valor da diária vale só para novos itens: orçamentos que já têm o produto mantêm o valor combinado."
+  },
+  {
     "id": "prod-inativar",
     "modulo": "Produtos",
     "pergunta": "Como tirar um produto de circulação?",
@@ -353,6 +367,21 @@
       "cpf"
     ],
     "resposta": "Em Clientes, use Novo cliente. O nome é obrigatório. Informe também o tipo (pessoa física ou jurídica), documento, e-mail, telefone, cidade e observações."
+  },
+  {
+    "id": "cli-editar",
+    "modulo": "Clientes",
+    "pergunta": "Como editar um cliente?",
+    "palavras_chave": [
+      "editar cliente",
+      "alterar cliente",
+      "atualizar dados",
+      "telefone",
+      "e-mail",
+      "lápis",
+      "corrigir"
+    ],
+    "resposta": "Em Clientes, clique no lápis na linha do cliente, altere os dados (nome, documento, e-mail, telefone, cidade, observações) e salve."
   },
   {
     "id": "cli-excluir",
