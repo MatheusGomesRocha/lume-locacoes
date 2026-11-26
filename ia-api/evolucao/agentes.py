@@ -369,6 +369,13 @@ class Tester:
         independentes = [r for r in resultados if r["origem"] != "codigo" and r["tipo"] == "execucao"]
         if not independentes:
             achados.append(checagens._a("T01", "aviso", "nenhum caso de resultado esperado veio de fonte independente da implementação (Analista ou Tester)"))
+        # Caso escrito só pelo modelo do Tester e que falhou: pode ser erro de conta dele (já esperou "soma" numa contagem e total 0
+        # para um valor que a consulta rejeita de propósito). Vira aviso para o Master ver; os casos do código e do Analista continuam bloqueando.
+        n_falhas = len(falhas)
+        duvidosas = [r for r in falhas if r["origem"] == "tester_llm"]
+        for r in duvidosas:
+            achados.append(checagens._a("T02", "aviso", f"o Tester esperava {r['esperado']} em “{r['descricao']}” e a consulta deu {r['obtido']}: confira se o erro foi da conta dele"))
+        falhas = [r for r in falhas if r["origem"] != "tester_llm"]
         if checagens.tem_bloqueio(achados) or falhas:
             veredito = "reprovar_recomendado"
         elif any(a["gravidade"] == "aviso" for a in achados) or limites or not independentes:
@@ -376,7 +383,7 @@ class Tester:
         else:
             veredito = "aprovar_recomendado"
         return {"achados": achados, "casos": resultados, "selo": selo, "selado_em": selado_em, "executado_em": executado_em, "veredito": veredito,
-                "resumo": {"casos": len(resultados), "passaram": len(resultados) - len(falhas), "falharam": len(falhas),
+                "resumo": {"casos": len(resultados), "passaram": len(resultados) - n_falhas, "falharam": n_falhas,
                            "bloqueios": sum(a["gravidade"] == "bloqueio" for a in achados), "avisos": sum(a["gravidade"] == "aviso" for a in achados)},
                 "limites": limites}
 

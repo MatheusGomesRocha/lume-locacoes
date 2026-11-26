@@ -173,10 +173,10 @@ def test_mudar_o_esperado_depois_de_selado_e_recusado():
         rodar_casos(SPEC, casos, selo)
 
 
-def test_esperado_errado_do_tester_reprova():
+def test_esperado_errado_do_tester_aparece_como_falha_e_aviso():
     errado = [{"descricao": "conta errado de propósito", "tipo": "execucao", "sessao": "admin", "params": {"perfil": "admin"}, "esperado": {"total": 5}}]
     av = Tester(Modelo(casos=errado)).avaliar(PROPOSTA, pacote())
-    assert av["veredito"] == "reprovar_recomendado" and av["resumo"]["falharam"] == 1
+    assert av["veredito"] == "revisar_com_atencao" and av["resumo"]["falharam"] == 1  # só o modelo do Tester esperou isso: o Master confere
 
 
 def test_implementacao_que_diverge_do_analista_reprova():
@@ -339,3 +339,11 @@ def test_json_quebrado_tenta_de_novo_e_usa_saida_grande():
     p = P()
     assert chamar_json(p, None, "s", "u") == {"a": 1}
     assert (p.max_saida, p.json) == (400, False)
+
+
+def test_caso_do_tester_modelo_que_falha_vira_aviso_mas_o_do_analista_bloqueia():
+    erro_do_tester = [{"tipo": "execucao", "descricao": "valor que não existe", "sessao": "master", "params": {"papel": "root"}, "esperado": {"total": 0}}]
+    av = Tester(Modelo(casos=erro_do_tester)).avaliar(PROPOSTA, pacote())
+    assert any(a["codigo"] == "T02" for a in av["achados"]) and av["resumo"]["falharam"] == 1 and av["veredito"] == "revisar_com_atencao"
+    errada = {**PROPOSTA, "expectativas": [{"descricao": "conta errada", "params": {"papel": "master"}, "esperado_total": 99}]}
+    assert Tester(None).avaliar(errada, pacote())["veredito"] == "reprovar_recomendado"
