@@ -355,3 +355,22 @@ def test_expectativa_do_analista_com_valor_impossivel_vira_recusa_e_nao_reprova(
     assert casos[0]["esperado"] == {"erro": "parametro"} and "fora da lista" in casos[0]["descricao"]
     av = Tester(None).avaliar(prop, pacote())
     assert av["resumo"]["falharam"] == 0 and av["veredito"] != "reprovar_recomendado"
+
+
+def test_ruido_do_tester_rotulo_de_tipo_que_nao_combina_e_corrigido_e_relatado():
+    brutos = [
+        {"tipo": "busca", "descricao": "Contar admin", "sessao": "master", "params": {"perfil": "admin"}, "esperado": {"total": 1}},   # rótulo errado: é execução
+        {"tipo": "busca", "descricao": "Busca sem pergunta", "sessao": "master", "esperado": {"acha": True}},                        # sem conserto
+        {"tipo": "execucao", "descricao": "Total de master", "sessao": "master", "params": {"perfil": "master"}, "esperado": {"total": 1, "soma": 0}},
+    ]
+    casos, relato = agentes.validar_casos_llm_com_relato(brutos, "contar")
+    assert [c["tipo"] for c in casos] == ["execucao", "execucao"] and casos[0]["esperado"] == {"total": 1} and casos[1]["esperado"] == {"total": 1}
+    assert len(relato["reclassificados"]) == 1 and "rotulou como busca" in relato["reclassificados"][0]
+    assert len(relato["descartados"]) == 1 and "sem a pergunta" in relato["descartados"][0]
+
+
+def test_caso_de_contagem_rotulado_como_busca_agora_passa_em_vez_de_virar_aviso():
+    mal_rotulado = [{"tipo": "busca", "descricao": "Contar admin", "sessao": "master", "params": {"perfil": "admin"}, "esperado": {"total": 1}}]
+    av = Tester(Modelo(casos=mal_rotulado)).avaliar(PROPOSTA, pacote())
+    assert av["resumo"]["falharam"] == 0 and len(av["ruido"]["reclassificados"]) == 1
+    assert "corrigido" in __import__("evolucao.relatorio", fromlist=["x"]).montar("EV-1", PROPOSTA, pacote(), av)["texto"]

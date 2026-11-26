@@ -59,6 +59,10 @@ def _texto(r: dict) -> str:
           f"Selo: `{av['selo']}`", f"Esperado escrito e selado em {av['selado_em']}; executado em {av['executado_em']}.",
           f"{av['resumo']['passaram']} de {av['resumo']['casos']} casos passaram."]
     L += [f"- {'✅' if c['passou'] else '❌'} [{c['origem']}] {c['descricao']} → esperado {c['esperado']}, obtido {c['obtido']}" for c in av["casos"]]
+    ruido = av.get("ruido") or {}
+    if ruido.get("reclassificados") or ruido.get("descartados"):
+        L += ["", "Casos do Tester que o código corrigiu ou descartou antes de rodar (erro de montagem do teste, não da consulta):"]
+        L += [f"- 🔧 corrigido: {x}" for x in ruido.get("reclassificados", [])] + [f"- 🗑️ descartado: {x}" for x in ruido.get("descartados", [])]
     L += ["", "## 5. Achados"] + ([f"- {'⛔' if a['gravidade'] == 'bloqueio' else '⚠️'} {a['codigo']}: {a['mensagem']}" for a in av["achados"]] or ["- Nenhum."])
     L += ["", "## 6. Veredito do Tester", f"**{VEREDITO[av['veredito']]}**", "", "## 7. Se você aprovar",
           "- A consulta entra no catálogo, com o seu nome e a data. Ela só LÊ dados e só para quem tem a permissão acima.",

@@ -296,18 +296,50 @@ def casos_da_proposta(proposta: dict, spec: dict | None = None) -> list[dict]:
     return casos
 
 
-def validar_casos_llm(brutos, operacao: str | None = None) -> list[dict]:
-    casos = []
+FAMILIA_EXECUCAO = {"execucao", "permissao", "parametro", "vazamento"}
+
+
+def _tipo_real(declarado: str, esperado: dict) -> str:
+    """O tipo que o `esperado` realmente tem. Quem diz o que o caso É não é o rótulo do modelo, são as chaves do resultado esperado."""
+    if "acha" in esperado:
+        return "busca"
+    if "params" in esperado:
+        return "busca_extrai"
+    return declarado if declarado in FAMILIA_EXECUCAO else "execucao"
+
+
+def validar_casos_llm_com_relato(brutos, operacao: str | None = None) -> tuple[list[dict], dict]:
+    """Casos do Tester-modelo depois de passar pelo código. Devolve (casos, relato do que foi corrigido ou descartado).
+
+    O "ruído" do Tester são casos mal montados, não consultas erradas. Aqui o código arruma o que dá para arrumar com certeza
+    (rótulo de tipo que não combina com o esperado, soma esperada numa contagem) e descarta o que não tem conserto (busca sem
+    pergunta). Nada some em silêncio: o relato vai para o relatório do Master.
+    """
+    casos, relato = [], {"reclassificados": [], "descartados": []}
     for b in (brutos if isinstance(brutos, list) else [])[:20]:
+        nome = _s(b.get("descricao"), 80) if isinstance(b, dict) else ""
         if not isinstance(b, dict) or b.get("tipo") not in TIPOS_DE_CASO or b.get("sessao", "master") not in SESSOES_TESTE or not isinstance(b.get("esperado"), dict):
+            relato["descartados"].append(f"“{nome or 'caso sem descrição'}”: formato inválido (tipo, sessão ou esperado)")
             continue
         esperado = {k: v for k, v in b["esperado"].items() if k in ("total", "soma", "erro", "acha", "params") and (not isinstance(v, bool) or k == "acha")}
-        if operacao and operacao != "somar":
-            esperado.pop("soma", None)  # contar e listar não devolvem soma: esperar uma é erro do Tester, não da consulta
+        if operacao and operacao != "somar" and "soma" in esperado:
+            esperado.pop("soma")  # contar e listar não devolvem soma: esperar uma é erro do Tester, não da consulta
         if not esperado or not isinstance(b.get("params", {}), dict):
+            relato["descartados"].append(f"“{nome}”: sem resultado esperado utilizável")
             continue
-        casos.append(_caso("tester_llm", b["tipo"], _s(b.get("descricao"), 200) or "caso do Tester", esperado, b.get("sessao", "master"), b.get("params", {}), _s(b.get("pergunta"), 200) if b.get("pergunta") else None))
-    return casos
+        tipo = _tipo_real(b["tipo"], esperado)
+        pergunta = _s(b.get("pergunta"), 200) if b.get("pergunta") else None
+        if tipo in ("busca", "busca_extrai") and not pergunta:
+            relato["descartados"].append(f"“{nome}”: teste de busca sem a pergunta a buscar")
+            continue
+        if tipo != b["tipo"]:
+            relato["reclassificados"].append(f"“{nome}”: o Tester o rotulou como {b['tipo']}, mas o esperado é de {tipo}")
+        casos.append(_caso("tester_llm", tipo, _s(b.get("descricao"), 200) or "caso do Tester", esperado, b.get("sessao", "master"), b.get("params", {}), pergunta))
+    return casos, relato
+
+
+def validar_casos_llm(brutos, operacao: str | None = None) -> list[dict]:
+    return validar_casos_llm_com_relato(brutos, operacao)[0]
 
 
 def selar(casos: list[dict]) -> str:
@@ -354,7 +386,7 @@ class Tester:
         achados = checagens.checar_proposta(proposta) + checagens.checar_spec(spec, proposta, catalogo)
         if pacote.get("descartadas"):
             achados.append(checagens._a("C00", "aviso", f"o Construtor devolveu chaves que não existem e foram descartadas: {pacote['descartadas']}"))
-        limites = []
+        limites, ruido = [], {"reclassificados": [], "descartados": []}
         if checagens.tem_bloqueio(achados) and (spec.get("entidade") not in ESQUEMA or spec.get("operacao") not in OPERACOES):
             return self._sem_execucao(achados, "a consulta nem tem entidade ou operação válidas: não há o que executar")
 
@@ -363,7 +395,8 @@ class Tester:
             try:
                 brutos = chamar_json(self.provedor, self.limitador, SISTEMA_TESTER, json.dumps(
                     {"ESQUEMA": resumo_do_esquema(), "DADOS_DE_TESTE": DADOS_TESTE, "SESSOES": SESSOES_TESTE, "PROPOSTA": proposta, "CONSULTA": spec}, ensure_ascii=False))
-                casos += validar_casos_llm(brutos.get("casos"), spec.get("operacao"))
+                validos, ruido = validar_casos_llm_com_relato(brutos.get("casos"), spec.get("operacao"))
+                casos += validos
             except ErroAgente as e:
                 limites.append(f"o Tester não conseguiu escrever casos próprios ({e}); valeram só os casos do código e do Analista")
             try:
@@ -403,9 +436,9 @@ class Tester:
         return {"achados": achados, "casos": resultados, "selo": selo, "selado_em": selado_em, "executado_em": executado_em, "veredito": veredito,
                 "resumo": {"casos": len(resultados), "passaram": len(resultados) - n_falhas, "falharam": n_falhas,
                            "bloqueios": sum(a["gravidade"] == "bloqueio" for a in achados), "avisos": sum(a["gravidade"] == "aviso" for a in achados)},
-                "limites": limites}
+                "limites": limites, "ruido": ruido}
 
     @staticmethod
     def _sem_execucao(achados: list[dict], motivo: str) -> dict:
         return {"achados": achados, "casos": [], "selo": None, "selado_em": None, "executado_em": None, "veredito": "reprovar_recomendado",
-                "resumo": {"casos": 0, "passaram": 0, "falharam": 0, "bloqueios": sum(a["gravidade"] == "bloqueio" for a in achados), "avisos": 0}, "limites": [motivo]}
+                "resumo": {"casos": 0, "passaram": 0, "falharam": 0, "bloqueios": sum(a["gravidade"] == "bloqueio" for a in achados), "avisos": 0}, "limites": [motivo], "ruido": {"reclassificados": [], "descartados": []}}
