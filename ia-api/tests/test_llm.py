@@ -153,7 +153,8 @@ def test_prompt_traz_o_assunto_da_conversa_so_quando_ha():
 
 def test_instrucoes_pedem_estilo_limpo_e_cuidado_com_assunto_trocado():
     assert "Não cumprimente" in llm.INSTRUCOES and "[1]" in llm.INSTRUCOES
-    assert "ASSUNTO DA CONVERSA" in llm.INSTRUCOES
+    assert "ASSUNTO DA CONVERSA" in llm.INSTRUCOES and "assunto certo" in llm.INSTRUCOES
+    assert "não encontrou isso sobre o assunto da conversa" not in llm.INSTRUCOES  # regra antiga que confundia o modelo
 
 
 def test_gerar_resposta_repassa_o_assunto_ao_modelo():

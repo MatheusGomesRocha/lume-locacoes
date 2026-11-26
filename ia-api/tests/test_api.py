@@ -297,3 +297,11 @@ def test_llm_recebe_o_assunto_da_conversa(com_llm):
     p = com_llm(ProvedorFalso())
     perguntar_com_contexto("e para editar?", ["como eu excluir produtos?"], "prod-excluir")
     assert "ASSUNTO DA CONVERSA: Produtos" in p.chamadas[0] and "assunto: Produtos" in p.chamadas[0]
+
+
+def test_llm_so_recebe_trechos_do_assunto_da_conversa(com_llm):
+    p = com_llm(ProvedorFalso())
+    perguntar_com_contexto("e para clientes?", ["como eu excluir produtos?"], "prod-excluir")
+    prompt = p.chamadas[0]
+    assert "ASSUNTO DA CONVERSA: Clientes" in prompt
+    assert "assunto: Clientes" in prompt and "assunto: Orçamentos" not in prompt and "assunto: Produtos" not in prompt

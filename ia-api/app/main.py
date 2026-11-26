@@ -151,6 +151,8 @@ def chat(dados: PerguntaIn):
 
     if melhor and melhor.score >= LIMITE_CONFIANCA:
         trechos = [(r.modulo, r.pergunta, r.resposta) for r in resultados if r.score >= NOTA_MINIMA_DO_TRECHO]
+        if assunto:  # conversa com assunto definido: só trechos dele (o bloqueio acima garante que existe algum)
+            trechos = [t for t in trechos if t[0] == assunto] or trechos
         redigida = gerar_resposta(provedor_llm, limitador_llm, pergunta, contexto.perguntas_anteriores, trechos, assunto or base.modulo_do_item(contexto.ultimo_id))
         return {
             "encontrou": True,
