@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\ChatLogController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\OrcamentoController;
@@ -26,3 +27,8 @@ Route::post('pagamentos/{pagamento}/baixar', [PagamentoController::class, 'baixa
 
 Route::get('chat/sugestoes', [ChatController::class, 'sugestoes']);
 Route::post('chat', [ChatController::class, 'perguntar']);
+
+Route::get('chat-logs', [ChatLogController::class, 'index']);
+Route::post('chat-logs', [ChatLogController::class, 'store']);
+Route::patch('chat-logs/{chatLog}', [ChatLogController::class, 'update']);
+Route::delete('chat-logs', [ChatLogController::class, 'destroy']);
