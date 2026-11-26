@@ -85,12 +85,14 @@ python -m avaliacao --url https://lume-ia.onrender.com # a API de verdade, com o
 python -m avaliacao --pontuar resultados.json --minimo 0.9 --md relatorio.md   # só pontua um arquivo já coletado; sai com erro abaixo do mínimo
 ```
 
-Última rodada **na API hospedada, com o Gemini** (2026-11-25, 69 casos): **67/69 (97%)**.
-FAQ e acesso 24/25, contexto 7/8, consulta 12/12, cadastro 6/6, exclusão 5/5, fora de escopo 5/5, conversa 2/2, segurança 6/6.
-Sem LLM (em processo) os casos de ferramentas dão 0 por construção; o resto dá 100%.
+Última rodada **na API hospedada, com o Gemini** (2026-11-25, 75 casos, disparada pelo workflow semanal): **72/75 (96%)**.
+FAQ e acesso 24/25, contexto 8/8, consulta 12/12, cadastro 6/6, exclusão 5/5, fora de escopo 5/5, conversa 2/2, segurança 6/6, **sinônimos 4/6**.
+Sem LLM (em processo, é o que o CI roda a cada commit) os 46 casos que não dependem do modelo dão 100%.
 
-Os 2 erros eram dúvidas de ajuda ("o que mostra o painel?", "e a receber?" após uma explicação) que o modelo mandou para uma consulta de dados.
-Ajustei a instrução do roteador (`INSTRUCOES_AGENTE`, regra 4) para "o que significa/mostra" ir ao FAQ; já publicado, e os 2 casos passaram na reexecução (a rodada completa não foi repetida).
+Falhas conhecidas (e o porquê):
+- `sinonimo-01` "como adiciono uma pessoa no sistema": a busca semântica não passou do limite de confiança (prefere "não encontrei" a arriscar).
+- `sinonimo-04` "equipamento parar de aparecer nos pedidos novos": o TF-IDF acerta o assunto errado (produto → editar) com nota média e o embedding não abre vantagem suficiente.
+- `acesso-06` "onde vejo as perguntas que fizeram pra Lumi?": o embedding escolheu "O que o assistente pode fazer?" no lugar de "Onde vejo as perguntas...". É o custo de deixar o significado vencer o TF-IDF quando este tem nota média; ajustar isso pede mais perguntas reais para calibrar (é para isso que serve o ciclo de `avaliacao.candidatos`).
 
 O que a primeira rodada achou e foi corrigido: "e para aprovar?" depois de "como criar um orçamento" respondia sobre **criar** (o verbo antigo
 competia com o novo) e "oi" / "obrigado" respondiam "não encontrei".
