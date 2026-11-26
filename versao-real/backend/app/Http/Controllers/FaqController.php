@@ -22,9 +22,9 @@ class FaqController extends Controller
             'pergunta' => 'required|string|min:3|max:200',
             'resposta' => 'required|string|min:3|max:1500',
             'palavras_chave' => 'sometimes|nullable|array|max:20',
-            'palavras_chave.*' => 'string|max:200',
+            'palavras_chave.*' => 'nullable|string|max:200',
         ]);
-        $d['palavras_chave'] = array_values(array_unique(array_filter(array_map('trim', $d['palavras_chave'] ?? []))));
+        $d['palavras_chave'] = array_values(array_unique(array_filter(array_map('trim', array_filter($d['palavras_chave'] ?? [], 'is_string')))));
 
         return $d;
     }
