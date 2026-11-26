@@ -107,4 +107,38 @@ class ChatApiTest extends TestCase
         $this->postJson('/api/chat', ['pergunta' => 'oi tudo', 'historico' => [str_repeat('a', 501)]])->assertStatus(422);
         $this->postJson('/api/chat', ['pergunta' => 'oi tudo', 'ultimo_id' => str_repeat('x', 81)])->assertStatus(422);
     }
+
+    public function test_repassa_a_data_de_hoje_e_os_resultados_das_consultas(): void
+    {
+        config(['services.ia.url' => 'http://ia.test']);
+        Http::fake(['ia.test/chat' => Http::response(['encontrou' => true, 'resposta' => 'Você tem 3.', 'fonte' => null, 'confianca' => 1, 'relacionadas' => []])]);
+        $resultados = [['nome' => 'consultar_orcamentos', 'args' => ['status' => 'aprovado'], 'resultado' => ['total' => 3]]];
+
+        $this->postJson('/api/chat', ['pergunta' => 'quantos aprovados?', 'hoje' => '2026-11-25', 'resultados' => $resultados])->assertOk();
+
+        Http::assertSent(fn ($r) => $r['hoje'] === '2026-11-25' && $r['resultados'] === $resultados);
+    }
+
+    public function test_devolve_do_jeito_que_veio_os_pedidos_de_consulta_e_de_acao(): void
+    {
+        config(['services.ia.url' => 'http://ia.test']);
+        $consultas = [['nome' => 'consultar_clientes', 'args' => ['busca' => 'ana']]];
+        $acoes = [['nome' => 'cadastrar_cliente', 'args' => ['nome' => 'Ana']]];
+        Http::fake(['ia.test/chat' => Http::sequence()
+            ->push(['encontrou' => true, 'resposta' => '', 'consultas' => $consultas])
+            ->push(['encontrou' => true, 'resposta' => 'Abri o cadastro.', 'acoes' => $acoes])]);
+
+        $this->postJson('/api/chat', ['pergunta' => 'quantos clientes?'])->assertOk()->assertJsonPath('consultas', $consultas);
+        $this->postJson('/api/chat', ['pergunta' => 'cadastra a Ana'])->assertOk()->assertJsonPath('acoes', $acoes);
+    }
+
+    public function test_valida_a_data_e_os_resultados(): void
+    {
+        Http::fake();
+
+        $this->postJson('/api/chat', ['pergunta' => 'oi tudo', 'hoje' => 'amanhã'])->assertStatus(422)->assertJsonValidationErrors(['hoje']);
+        $this->postJson('/api/chat', ['pergunta' => 'oi tudo', 'resultados' => array_fill(0, 4, [])])->assertStatus(422)->assertJsonValidationErrors(['resultados']);
+        $this->postJson('/api/chat', ['pergunta' => 'oi tudo', 'resultados' => ['texto solto']])->assertStatus(422);
+        Http::assertNothingSent();
+    }
 }

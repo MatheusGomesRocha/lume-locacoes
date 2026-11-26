@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import main
-from app.llm import ErroLLM, LimitadorDiario
+from app.llm import Decisao, ErroLLM, LimitadorDiario
 from app.main import app, identificar_visitante, origens_permitidas, registrar_sem_resposta
 
 client = TestClient(app)
@@ -196,8 +196,16 @@ def test_resposta_de_dados_e_de_nao_encontrado_trazem_usou_contexto_falso():
 
 # ---------- LLM (sempre com provedor falso) ----------
 class ProvedorFalso:
-    def __init__(self, texto="Resposta redigida pelo modelo.", erro=None):
+    def __init__(self, texto="Resposta redigida pelo modelo.", erro=None, decisao=None):
         self.texto, self.erro, self.chamadas = texto, erro, []
+        self.decisao = decisao or Decisao(texto="AJUDA")  # por padrão o "roteador" manda tudo para o FAQ
+        self.decisoes = []
+
+    def decidir(self, sistema, usuario, tools):
+        self.decisoes.append(usuario)
+        if isinstance(self.decisao, Exception):
+            raise self.decisao
+        return self.decisao
 
     def gerar(self, sistema, usuario):
         self.chamadas.append(usuario)
@@ -258,10 +266,11 @@ def test_llm_nao_e_chamado_quando_o_faq_nao_acha_nada(com_llm):
     assert r["encontrou"] is False and r["gerada_por_llm"] is False and p.chamadas == []
 
 
-def test_llm_nao_e_chamado_para_pedido_de_dados(com_llm):
+def test_pedido_de_dados_que_o_modelo_manda_para_a_ajuda_cai_na_recusa(com_llm):
     p = com_llm(ProvedorFalso())
     r = perguntar("quantos orçamentos eu tenho?")
-    assert r["gerada_por_llm"] is False and p.chamadas == []
+    assert r["gerada_por_llm"] is False and p.chamadas == [] and len(p.decisoes) == 1
+    assert "Ainda não consigo consultar" in r["resposta"]
 
 
 # ---------- assunto da conversa na API ----------
@@ -305,3 +314,96 @@ def test_llm_so_recebe_trechos_do_assunto_da_conversa(com_llm):
     prompt = p.chamadas[0]
     assert "ASSUNTO DA CONVERSA: Clientes" in prompt
     assert "assunto: Clientes" in prompt and "assunto: Orçamentos" not in prompt and "assunto: Produtos" not in prompt
+
+
+# ---------- agente: consultas, cadastros e exclusões ----------
+def chamada(ferramenta, **args):
+    return {"nome": ferramenta, "args": args}
+
+
+def test_consulta_vira_pedido_para_o_front_executar(com_llm):
+    p = com_llm(ProvedorFalso(decisao=Decisao(chamadas=[chamada("consultar_orcamentos", status="aprovado")])))
+    r = perguntar("quantos orçamentos aprovados eu tenho?")
+    assert r["consultas"] == [chamada("consultar_orcamentos", status="aprovado")]
+    assert r["resposta"] == "" and "acoes" not in r and p.chamadas == []
+
+
+def test_o_modelo_recebe_a_data_de_hoje_e_o_historico(com_llm):
+    p = com_llm(ProvedorFalso())
+    client.post("/chat", json={"pergunta": "quanto recebi este mês?", "historico": ["oi"], "hoje": "2026-11-25"})
+    assert "HOJE: 2026-11-25" in p.decisoes[0] and "- oi" in p.decisoes[0] and "MENSAGEM ATUAL: quanto recebi este mês?" in p.decisoes[0]
+
+
+def test_data_de_hoje_invalida_e_recusada():
+    assert client.post("/chat", json={"pergunta": "oi, tudo bem", "hoje": "amanhã"}).status_code == 422
+
+
+def test_segunda_volta_redige_a_resposta_com_os_dados(com_llm):
+    p = com_llm(ProvedorFalso(texto="Você tem 3 orçamentos aprovados."))
+    corpo = {"pergunta": "quantos orçamentos aprovados eu tenho?", "resultados": [{"nome": "consultar_orcamentos", "args": {"status": "aprovado"}, "resultado": {"total": 3, "linhas": []}}]}
+    r = client.post("/chat", json=corpo).json()
+    assert r["resposta"] == "Você tem 3 orçamentos aprovados." and r["gerada_por_llm"] is True and r["encontrou"] is True
+    assert p.decisoes == [] and '"total": 3' in p.chamadas[0]
+
+
+def test_segunda_volta_com_falha_do_modelo_avisa_sem_inventar(com_llm):
+    com_llm(ProvedorFalso(erro=ErroLLM("fora do ar")))
+    corpo = {"pergunta": "quantos clientes?", "resultados": [{"nome": "consultar_clientes", "args": {}, "resultado": {"total": 5}}]}
+    r = client.post("/chat", json=corpo).json()
+    assert r["encontrou"] is False and r["gerada_por_llm"] is False and "5" not in r["resposta"]
+
+
+def test_segunda_volta_ignora_ferramenta_desconhecida_e_de_acao(com_llm):
+    p = com_llm(ProvedorFalso())
+    corpo = {"pergunta": "receita de bolo de chocolate", "resultados": [{"nome": "excluir_registro", "args": {}, "resultado": 1}, {"nome": "inventada", "args": {}, "resultado": 1}]}
+    r = client.post("/chat", json=corpo).json()
+    assert p.chamadas == [] and r["encontrou"] is False
+
+
+def test_cadastro_vira_acao_com_o_que_o_usuario_disse(com_llm):
+    com_llm(ProvedorFalso(decisao=Decisao(chamadas=[chamada("cadastrar_cliente", nome="Padaria Sol", tipo="PJ")])))
+    r = perguntar("quero cadastrar a Padaria Sol, é uma empresa")
+    assert r["acoes"] == [chamada("cadastrar_cliente", nome="Padaria Sol", tipo="PJ")]
+    assert "Confira os campos" in r["resposta"] and "consultas" not in r
+
+
+def test_exclusao_vira_acao_que_ainda_depende_de_confirmacao(com_llm):
+    com_llm(ProvedorFalso(decisao=Decisao(chamadas=[chamada("excluir_registro", modulo="produto", busca="tripé")])))
+    r = perguntar("exclui o produto tripé")
+    assert r["acoes"] == [chamada("excluir_registro", modulo="produto", busca="tripé")] and "Confirme" in r["resposta"]
+
+
+def test_so_a_primeira_acao_e_devolvida(com_llm):
+    com_llm(ProvedorFalso(decisao=Decisao(chamadas=[chamada("excluir_registro", modulo="produto", busca="a"), chamada("excluir_registro", modulo="cliente", busca="b")])))
+    assert len(perguntar("apague o produto a e o cliente b")["acoes"]) == 1
+
+
+def test_pergunta_de_esclarecimento_do_modelo_e_repassada(com_llm):
+    com_llm(ProvedorFalso(decisao=Decisao(texto="Qual produto você quer excluir?")))
+    r = perguntar("quero excluir um produto")
+    assert r["resposta"] == "Qual produto você quer excluir?" and r["encontrou"] is True and "acoes" not in r
+
+
+def test_duvida_de_como_fazer_nao_gasta_chamada_de_roteamento(com_llm):
+    p = com_llm(ProvedorFalso())
+    r = perguntar("como excluir produto")
+    assert p.decisoes == [] and r["fonte"]["id"] == "prod-excluir"
+
+
+def test_modelo_que_responde_ajuda_segue_para_o_faq(com_llm):
+    p = com_llm(ProvedorFalso(decisao=Decisao(texto="AJUDA")))
+    r = perguntar("quero criar um orçamento")
+    assert len(p.decisoes) == 1 and r["fonte"]["id"] == "orc-criar"
+
+
+def test_erro_no_roteamento_cai_no_faq(com_llm):
+    com_llm(ProvedorFalso(decisao=ErroLLM("fora do ar")))
+    # ErroLLM levantado dentro de decidir() não pode derrubar a resposta
+    r = perguntar("quero criar um orçamento")
+    assert r["fonte"]["id"] == "orc-criar"
+
+
+def test_sem_llm_cadastro_e_consulta_seguem_o_comportamento_antigo(monkeypatch):
+    monkeypatch.setattr(main, "provedor_llm", None)
+    assert "acoes" not in perguntar("quero cadastrar um cliente")
+    assert "Ainda não consigo consultar" in perguntar("quantos orçamentos eu tenho?")["resposta"]

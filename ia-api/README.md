@@ -43,8 +43,24 @@ Com `GEMINI_API_KEY` definida, o fluxo do `/chat` vira um RAG completo:
 2. o Gemini redige a resposta usando **só** esses trechos (instruções em `app/llm.py`);
 3. a resposta traz `"gerada_por_llm": true`; a fonte continua sendo a melhor entrada do FAQ.
 
-O LLM **nunca é chamado** quando o FAQ não acha nada ou quando o pedido é de dados do sistema, e a API cai na resposta
+O LLM **nunca é chamado** quando o FAQ não acha nada, e a API cai na resposta
 pronta do FAQ se: não houver chave, o teto diário (`IA_LLM_LIMITE_DIARIO`) acabar, ou o provedor falhar. O chat nunca fica mudo.
+
+### Ferramentas: consultar dados, cadastrar e excluir
+
+Com o LLM ligado, pedidos como "quantos orçamentos aprovados eu tenho?", "quero cadastrar um cliente" e "exclui o produto
+tripé" viram **ferramentas** (`app/ferramentas.py`). O modelo só **pede**; quem executa é o front, pela mesma API das telas:
+
+| Pedido | O que a `ia-api` devolve | O que o front faz |
+|---|---|---|
+| Consulta (`consultar_*`, `resumo_painel`) | `consultas: [{nome, args}]` | lê pela API, devolve em `resultados`; a 2ª volta traz a resposta redigida |
+| Cadastro (`cadastrar_*`) | `acoes: [...]` | abre o **mesmo formulário** da tela, preenchido; o usuário confere e salva |
+| Exclusão (`excluir_registro`) | `acoes: [...]` | acha o registro e mostra o botão **Confirmar exclusão**; a API de exclusão aplica as regras de sempre |
+
+Garantias: a saída do modelo é validada (ferramenta desconhecida é descartada, argumentos são limpos e limitados); nenhuma
+ferramenta grava ou exclui sozinha; as consultas devolvem poucos campos (sem documento, e-mail, telefone ou observações);
+dúvidas de "como fazer" não gastam chamada de roteamento e seguem direto para o FAQ. Campos extras do `/chat`:
+`hoje` (AAAA-MM-DD, para "este mês") e `resultados` (2ª volta).
 
 A chave fica só no servidor. Crie uma em https://aistudio.google.com/apikey (plano gratuito; os limites mudam,
 veja o AI Studio). Os termos do plano gratuito permitem que o Google use o conteúdo enviado, então não coloque dados

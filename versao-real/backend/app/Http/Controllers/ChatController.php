@@ -16,7 +16,7 @@ class ChatController extends Controller
 {
     private function api()
     {
-        $http = Http::baseUrl(config('services.ia.url'))->timeout(10)->acceptJson();
+        $http = Http::baseUrl(config('services.ia.url'))->timeout(25)->acceptJson();
 
         return config('services.ia.token') ? $http->withHeaders(['X-API-Token' => config('services.ia.token')]) : $http;
     }
@@ -45,6 +45,11 @@ class ChatController extends Controller
             'historico' => 'sometimes|nullable|array|max:6',
             'historico.*' => 'nullable|string|max:500',
             'ultimo_id' => 'sometimes|nullable|string|max:80',
+            // Data de hoje de quem pergunta ("este mês", "amanhã" partem dela).
+            'hoje' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            // Segunda volta de uma consulta: o que o front leu pelas telas. O Laravel só repassa; a API Python valida.
+            'resultados' => 'sometimes|nullable|array|max:3',
+            'resultados.*' => 'array',
         ]);
 
         $corpo = ['pergunta' => $dados['pergunta']];
@@ -54,6 +59,12 @@ class ChatController extends Controller
         }
         if (! empty($dados['ultimo_id'])) {
             $corpo['ultimo_id'] = $dados['ultimo_id'];
+        }
+        if (! empty($dados['hoje'])) {
+            $corpo['hoje'] = $dados['hoje'];
+        }
+        if (! empty($dados['resultados'])) {
+            $corpo['resultados'] = array_values($dados['resultados']);
         }
 
         try {

@@ -12,11 +12,12 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Annotated
+from typing import Annotated, Any
 
+from app import ferramentas
 from app.busca import BaseConhecimento, Contexto, pede_dados_do_sistema
 from app.limite import LimitadorDeRequisicoes
-from app.llm import LimitadorDiario, criar_provedor_do_ambiente, gerar_resposta, limite_diario_do_ambiente
+from app.llm import AJUDA, LimitadorDiario, criar_provedor_do_ambiente, decidir_acao, gerar_resposta, limite_diario_do_ambiente, redigir_com_dados
 
 PASTA_DADOS = Path(__file__).resolve().parent.parent / "data"
 
@@ -58,6 +59,10 @@ class PerguntaIn(BaseModel):
     # A API não guarda conversa; quem chama manda isso a cada pergunta.
     historico: list[Annotated[str, Field(max_length=500)]] = Field(default_factory=list, max_length=6)
     ultimo_id: str | None = Field(default=None, max_length=80)
+    # Data de hoje no relógio de quem pergunta (AAAA-MM-DD): "este mês", "amanhã" partem dela.
+    hoje: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    # Segunda volta: o que as consultas pedidas na primeira volta devolveram (o front as executa).
+    resultados: list[dict[str, Any]] | None = Field(default=None, max_length=3)
 
 
 def exigir_token(x_api_token: str | None = Header(default=None)):
@@ -108,10 +113,50 @@ def listar_faq():
     return [{"id": i["id"], "modulo": i["modulo"], "pergunta": i["pergunta"]} for i in base.itens]
 
 
+def _resposta_agente(resposta: str, **extra) -> dict:
+    return {"encontrou": True, "resposta": resposta, "fonte": None, "confianca": 1.0, "relacionadas": [], "usou_contexto": True, "gerada_por_llm": True, **extra}
+
+
+TEXTO_DA_ACAO = {
+    "cadastrar_cliente": "Abri o cadastro de cliente com o que você informou. Confira os campos e salve.",
+    "cadastrar_produto": "Abri o cadastro de produto com o que você informou. Confira os campos e salve.",
+    "cadastrar_orcamento": "Abri o novo orçamento com o que você informou. Confira os campos e salve.",
+    "excluir_registro": "Encontrei o registro. Confirme abaixo se quer mesmo excluir.",
+}
+
+
+def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | None:
+    """Consultas, cadastros e exclusões. None = não é com o agente, segue para o FAQ."""
+    resultados = ferramentas.validar_resultados(dados.resultados)
+    if resultados:  # segunda volta: o front já consultou, falta redigir a resposta
+        texto = redigir_com_dados(provedor_llm, limitador_llm, pergunta, historico, resultados, dados.hoje)
+        return _resposta_agente(texto or "Não consegui montar a resposta agora. Tente de novo em instantes.", encontrou=texto is not None, gerada_por_llm=texto is not None)
+
+    if provedor_llm is None or not ferramentas.parece_pedido_de_acao_ou_dados(pergunta, historico):
+        return None
+    decisao = decidir_acao(provedor_llm, limitador_llm, pergunta, historico, dados.hoje)
+    if decisao is None:
+        return None
+    if decisao.chamadas:
+        consultas = [c for c in decisao.chamadas if ferramentas.eh_consulta(c["nome"])]
+        if consultas:  # consultar e agir no mesmo pedido não é suportado: a consulta vem primeiro
+            return _resposta_agente("", consultas=consultas)
+        acoes = decisao.chamadas[:1]  # uma ação por vez: cada uma tem a sua confirmação
+        return _resposta_agente(TEXTO_DA_ACAO[acoes[0]["nome"]], acoes=acoes)
+    if decisao.texto and decisao.texto.strip().strip(".!").upper() != AJUDA:
+        return _resposta_agente(decisao.texto[:400])
+    return None
+
+
 @app.post("/chat", dependencies=[Depends(exigir_token), Depends(limitar)])
 def chat(dados: PerguntaIn):
     pergunta = dados.pergunta.strip()
     contexto = Contexto([p.strip() for p in dados.historico if p.strip()][-3:], dados.ultimo_id)
+
+    da_ferramenta = _agente(pergunta, contexto.perguntas_anteriores, dados)
+    if da_ferramenta is not None:
+        return da_ferramenta
+
     resultados, usou_contexto = base.buscar_com_contexto(pergunta, contexto, limite=4)
     melhor = resultados[0] if resultados else None
 
