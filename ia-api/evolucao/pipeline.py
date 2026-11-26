@@ -109,12 +109,11 @@ class Repositorio:
         return item
 
 
-def evoluir(provedor, limitador, perguntas: list[dict], repo: Repositorio) -> list[dict]:
-    """Roda Agent 1 -> 2 -> 3 para as perguntas e guarda um relatório por proposta. Devolve os relatórios."""
-    catalogo = repo.specs_ativas()
+def gerar_relatorios(provedor, limitador, perguntas: list[dict], catalogo: list[dict], proximo_id) -> list[dict]:
+    """Roda Agent 1 -> 2 -> 3 sem guardar nada: quem chama decide onde ficam os relatórios. `proximo_id(i)` dá o id do i-ésimo."""
     relatorios = []
-    for prop in Analista(provedor, limitador).propor(perguntas, catalogo):
-        id_ = repo.proximo_id()
+    for i, prop in enumerate(Analista(provedor, limitador).propor(perguntas, catalogo)):
+        id_ = proximo_id(i)
         pacote = avaliacao = None
         barrada = checagens.checar_proposta(prop)
         if prop["decisao"] == "criar_consulta" and checagens.tem_bloqueio(barrada):  # proposta ruim não chega ao Construtor
@@ -128,7 +127,14 @@ def evoluir(provedor, limitador, perguntas: list[dict], repo: Repositorio) -> li
                 pacote = avaliacao = None
         else:
             prop["achados"] = checagens.checar_proposta(prop)
-        rel = relatorio.montar(id_, prop, pacote, avaliacao)
+        relatorios.append(relatorio.montar(id_, prop, pacote, avaliacao))
+    return relatorios
+
+
+def evoluir(provedor, limitador, perguntas: list[dict], repo: Repositorio) -> list[dict]:
+    """Versão da linha de comando: guarda os relatórios no disco."""
+    base = len(repo.propostas())
+    relatorios = gerar_relatorios(provedor, limitador, perguntas, repo.specs_ativas(), lambda i: f"EV-{base + i + 1:04d}")
+    for rel in relatorios:
         repo.salvar(rel)
-        relatorios.append(rel)
     return relatorios

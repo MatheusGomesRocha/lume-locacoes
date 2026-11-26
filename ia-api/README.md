@@ -181,3 +181,10 @@ python -m evolucao desativar NOME --por "Nome"
 ```
 
 Ainda não ligado ao `/chat`: aprovadas ficam em `data/evolucao/catalogo.json`; falta o executor genérico no front e a tela do Master.
+
+### Evolução assistida: da proposta ao chat (ponta a ponta)
+
+1. **Analisar** – na tela *Conversas → Evolução da Lumi* (só o master), o botão “Analisar perguntas sem resposta” manda as perguntas ao `POST /evolucao/propor`. A API roda Analista → Construtor → Tester e devolve relatórios; **não guarda nada** (o disco do Render é efêmero). Quem guarda é o Laravel (tabela `evolucao_propostas`) ou, na demonstração, o `localStorage`.
+2. **Decidir** – o master lê o relatório e aprova ou reprova. Ao aprovar, as checagens fixas são refeitas em `POST /evolucao/checar` (sem modelo); com bloqueio, ou sem resposta da API, **não ativa**. Veredito “reprovar recomendado” só permite reprovar.
+3. **Usar** – as consultas ativas viajam com cada pergunta (`catalogo`, como o `faq_extra`). O `/chat` as encontra antes de perguntar ao modelo, pede ao front `{nome: "catalogo", args: {nome, params}}`, o front executa pela mesma API das telas (com as permissões de quem está logado) e a resposta é montada por código, sem modelo.
+4. **Mesmo resultado nos dois lados** – `versao-real/frontend/src/test/catalogo_vetores.json` tem os casos que o executor Python (`evolucao/consulta.py`) e o TypeScript (`lib/catalogo.ts`) precisam responder igual; os dois testes leem o mesmo arquivo.

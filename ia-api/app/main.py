@@ -21,6 +21,11 @@ from app.conversa import resposta_de_conversa
 from app.cache import cache_do_ambiente, chave_da_conversa, versao_do_conteudo
 from app.busca import BaseConhecimento, Contexto, Resultado, pede_dados_do_sistema
 from app.semantica import NOTA_LEXICAL_CONFIANTE, criar_indice_do_ambiente, vencedor_confiavel
+from evolucao import checagens
+from evolucao.agentes import normalizar_spec
+from evolucao.consulta import buscar_consulta, extrair_parametros
+from evolucao.esquema import ESQUEMA
+from evolucao.pipeline import gerar_relatorios
 from app.limite import LimitadorDeRequisicoes
 from app.llm import AJUDA, INSTRUCOES, INSTRUCOES_AGENTE, LimitadorDiario, criar_provedor_do_ambiente, decidir_acao, gerar_resposta, limite_diario_do_ambiente, redigir_com_dados
 
@@ -106,6 +111,8 @@ class PerguntaIn(BaseModel):
     agente: dict[str, Any] | None = None
     # FAQ extra (o que o master respondeu a partir das perguntas sem resposta). O Laravel/o front manda a lista a cada pergunta.
     faq_extra: list[ItemExtra] = Field(default_factory=list, max_length=MAX_FAQ_EXTRA)
+    # Consultas que os Agents criaram e o Master aprovou (specs, nunca código). Vêm a cada pergunta, como o faq_extra.
+    catalogo: list[dict[str, Any]] = Field(default_factory=list, max_length=30)
 
 
 def exigir_token(x_api_token: str | None = Header(default=None)):
@@ -187,15 +194,54 @@ TEXTO_DA_ACAO = {
 }
 
 
+def specs_validas(brutas: list[dict]) -> list[dict]:
+    """Só entram as specs que passam de novo pelas checagens fixas: o catálogo vem de fora, então não se confia nele."""
+    saida = []
+    for b in brutas:
+        spec, _ = normalizar_spec(b)
+        if not checagens.tem_bloqueio(checagens.checar_spec(spec, None, [])):
+            saida.append(spec)
+    return saida
+
+
+def _faltando(spec: dict, params: dict) -> list[str]:
+    return [n for n, d in (spec.get("parametros") or {}).items() if d.get("obrigatorio") and n not in params]
+
+
+def texto_do_catalogo(spec: dict, resultado: Any) -> str:
+    """Resposta montada por código (sem modelo): o número é o que a consulta devolveu, nada inventado."""
+    if not isinstance(resultado, dict) or "erro" in resultado:
+        return str((resultado or {}).get("erro", "Não consegui consultar agora.")).capitalize() + "." if isinstance(resultado, dict) else "Não consegui consultar agora."
+    rotulo = ESQUEMA.get(spec.get("entidade"), {}).get("rotulo", "registros").lower()
+    partes = [f"Encontrei {resultado.get('total', 0)} em {rotulo}."]
+    if "soma" in resultado:
+        partes.append(f"Soma: {str(resultado['soma']).replace('.', ',')}.")
+    for linha in resultado.get("linhas", [])[:15]:
+        partes.append("• " + " · ".join(str(v) for v in linha.values() if v not in (None, "")))
+    return "\n".join(partes)
+
+
 def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | None:
     """Consultas, cadastros e exclusões. None = não é com o agente, segue para o FAQ."""
     resultados = ferramentas.validar_resultados(dados.resultados)
+    if resultados and all(r["nome"] == ferramentas.CATALOGO for r in resultados):
+        por_nome = {s["nome"]: s for s in specs_validas(dados.catalogo)}
+        return _resposta_agente("\n\n".join(texto_do_catalogo(por_nome.get(r["args"]["nome"], {}), r["resultado"]) for r in resultados), gerada_por_llm=False)
     if resultados:  # segunda volta: o front já consultou, falta redigir a resposta
         texto = redigir_com_dados(provedor_llm, limitador_llm, pergunta, historico, resultados, dados.hoje)
         return _resposta_agente(texto or "Não consegui montar a resposta agora. Tente de novo em instantes.", encontrou=texto is not None, gerada_por_llm=texto is not None)
 
     if ferramentas.pede_acao(pergunta) and ferramentas.fala_de_usuario_do_sistema(pergunta):
         return _resposta_agente(TEXTO_USUARIO_DO_SISTEMA)  # antes do modelo: não depende dele nem gasta cota
+    if dados.catalogo and not ferramentas.pede_acao(pergunta):  # uma consulta aprovada pelo Master tem prioridade sobre perguntar ao modelo
+        specs = specs_validas(dados.catalogo)
+        spec = buscar_consulta(pergunta, specs)
+        if spec:
+            params = extrair_parametros(pergunta, spec)
+            falta = _faltando(spec, params)
+            if falta:
+                return _resposta_agente(f"Para responder preciso saber: {', '.join(falta)}. Diga na pergunta, por exemplo “{(spec.get('exemplos') or [''])[0]}”.", gerada_por_llm=False)
+            return _resposta_agente("", consultas=[{"nome": ferramentas.CATALOGO, "args": {"nome": spec["nome"], "params": params}}], gerada_por_llm=False)
     if provedor_llm is None or not ferramentas.parece_pedido_de_acao_ou_dados(pergunta, historico):
         return None
     chave = chave_da_conversa("decisao", VERSAO_DO_CONTEUDO, pergunta, historico, dados.ultimo_id, dados.hoje or "")
@@ -222,6 +268,45 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
     if decisao.texto and decisao.texto.strip().strip(".!").upper() != AJUDA:
         return _resposta_agente(decisao.texto[:400])
     return None
+
+
+class PerguntaSemResposta(BaseModel):
+    pergunta: str = Field(min_length=4, max_length=300)
+    tipo: str = Field(default="dados", max_length=20)
+    vezes: int = Field(default=1, ge=1, le=10_000)
+
+
+class EvolucaoIn(BaseModel):
+    perguntas: list[PerguntaSemResposta] = Field(min_length=1, max_length=20)
+    catalogo: list[dict[str, Any]] = Field(default_factory=list, max_length=30)  # o que já foi aprovado (evita nome repetido e consulta repetida)
+    proximo_numero: int = Field(default=1, ge=1, le=100_000)
+
+
+@app.post("/evolucao/propor", dependencies=[Depends(exigir_token), Depends(limitar)])
+def evolucao_propor(dados: EvolucaoIn):
+    """Agents 1, 2 e 3 sobre as perguntas sem resposta. Não guarda nada: devolve os relatórios para o Laravel/front guardarem e o Master decidir."""
+    if provedor_llm is None:
+        raise HTTPException(status_code=503, detail="Os Agents precisam do modelo (GEMINI_API_KEY) e ele não está configurado.")
+    try:
+        relatorios = gerar_relatorios(provedor_llm, limitador_llm, [p.model_dump() for p in dados.perguntas], specs_validas(dados.catalogo),
+                                      lambda i: f"EV-{dados.proximo_numero + i:04d}")
+    except Exception as e:  # ErroAgente, cota, rede: o Master vê o motivo em vez de um erro mudo
+        raise HTTPException(status_code=502, detail=f"Os Agents não conseguiram terminar: {str(e)[:200]}") from None
+    return {"relatorios": relatorios}
+
+
+class ChecarIn(BaseModel):
+    spec: dict[str, Any]
+    proposta: dict[str, Any] = Field(default_factory=dict)
+    catalogo: list[dict[str, Any]] = Field(default_factory=list, max_length=30)
+
+
+@app.post("/evolucao/checar", dependencies=[Depends(exigir_token), Depends(limitar)])
+def evolucao_checar(dados: ChecarIn):
+    """Refaz só as checagens fixas (sem modelo) de uma consulta. Quem guarda as propostas chama isto de novo na hora de aprovar."""
+    spec, _ = normalizar_spec(dados.spec)
+    achados = checagens.checar_spec(spec, dados.proposta or None, specs_validas(dados.catalogo))
+    return {"achados": achados, "bloqueio": checagens.tem_bloqueio(achados)}
 
 
 TEXTO_USUARIO_DO_SISTEMA = (

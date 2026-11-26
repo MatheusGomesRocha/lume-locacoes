@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\EvolucaoProposta;
 use App\Models\FaqItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -78,6 +79,12 @@ class ChatController extends Controller
         $extras = FaqItem::query()->orderBy('id')->limit(FaqController::LIMITE)->get(['id', 'modulo', 'pergunta', 'resposta', 'palavras_chave']);
         if ($extras->isNotEmpty()) {
             $corpo['faq_extra'] = $extras->map(fn ($i) => ['id' => $i->id, 'modulo' => $i->modulo, 'pergunta' => $i->pergunta, 'resposta' => $i->resposta, 'palavras_chave' => $i->palavras_chave ?? []])->all();
+        }
+
+        // Consultas que os Agents criaram e o master aprovou: também vão junto, e só as ativas.
+        $catalogo = EvolucaoProposta::specsAtivas();
+        if ($catalogo) {
+            $corpo['catalogo'] = $catalogo;
         }
 
         try {

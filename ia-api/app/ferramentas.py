@@ -20,6 +20,7 @@ MAX_TEXTO = 200
 MAX_ITENS = 20
 MAX_BYTES_RESULTADO = 8000
 MAX_RESULTADOS = 3
+CATALOGO = "catalogo"  # nome da "ferramenta" que executa uma consulta criada pelos Agents e aprovada pelo Master
 DATA_ISO = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
@@ -187,6 +188,11 @@ def validar_resultados(brutos: Any) -> list[dict]:
     """Resultados que o front devolveu depois de executar as consultas. Só aceita consultas conhecidas e de tamanho razoável."""
     saida = []
     for r in (brutos if isinstance(brutos, list) else [])[:MAX_RESULTADOS]:
+        if isinstance(r, dict) and r.get("nome") == CATALOGO:  # consulta aprovada pelo Master: o front a executou pela spec do catálogo
+            a = r.get("args") if isinstance(r.get("args"), dict) else {}
+            if isinstance(a.get("nome"), str) and len(json.dumps(r.get("resultado"), ensure_ascii=False)) <= MAX_BYTES_RESULTADO:
+                saida.append({"nome": CATALOGO, "args": {"nome": a["nome"][:60], "params": a.get("params") if isinstance(a.get("params"), dict) else {}}, "resultado": r.get("resultado")})
+            continue
         if not isinstance(r, dict) or not isinstance(r.get("nome"), str) or r["nome"] not in CONSULTAS:
             continue
         chamada = validar_chamada(r["nome"], r.get("args"))

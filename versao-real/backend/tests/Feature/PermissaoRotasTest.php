@@ -55,6 +55,12 @@ class PermissaoRotasTest extends TestCase
             'faq criar' => ['postJson', '/api/faq-itens', []],
             'faq editar' => ['putJson', '/api/faq-itens/{faqItem}', []],
             'faq excluir' => ['deleteJson', '/api/faq-itens/{faqItem}', []],
+            // Evolução assistida: o catálogo é de quem usa o chat; analisar e decidir, só o master (ver EvolucaoApiTest).
+            'evolucao catalogo' => ['getJson', '/api/evolucao/catalogo', ['assistente.usar']],
+            'evolucao listar' => ['getJson', '/api/evolucao', []],
+            'evolucao analisar' => ['postJson', '/api/evolucao/analisar', []],
+            'evolucao decidir' => ['postJson', '/api/evolucao/EV-0001/decidir', []],
+            'evolucao desativar' => ['postJson', '/api/evolucao/EV-0001/desativar', []],
         ];
     }
 

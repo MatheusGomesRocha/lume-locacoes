@@ -5,6 +5,7 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ChatLogController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EvolucaoController;
 use App\Http\Controllers\FaqController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\OrcamentoController;
@@ -59,12 +60,21 @@ Route::middleware('autenticado')->group(function () {
     Route::get('chat-logs', [ChatLogController::class, 'index'])->middleware('pode:assistente.conversas');
     Route::delete('chat-logs', [ChatLogController::class, 'destroy'])->middleware('pode:assistente.conversas');
 
+    // Consultas aprovadas pelo master: quem usa o assistente só lê o catálogo ativo.
+    Route::get('evolucao/catalogo', [EvolucaoController::class, 'catalogo'])->middleware('pode:assistente.usar');
+
     // Responder às perguntas sem resposta (base de ajuda): só o master, nunca por grupo.
     Route::middleware('master')->group(function () {
         Route::get('faq-itens', [FaqController::class, 'index']);
         Route::post('faq-itens', [FaqController::class, 'store']);
         Route::put('faq-itens/{faqItem}', [FaqController::class, 'update']);
         Route::delete('faq-itens/{faqItem}', [FaqController::class, 'destroy']);
+
+        // Evolução assistida: os Agents propõem, o master aprova ou reprova.
+        Route::get('evolucao', [EvolucaoController::class, 'index']);
+        Route::post('evolucao/analisar', [EvolucaoController::class, 'analisar']);
+        Route::post('evolucao/{codigo}/decidir', [EvolucaoController::class, 'decidir']);
+        Route::post('evolucao/{codigo}/desativar', [EvolucaoController::class, 'desativar']);
     });
 
     // Usuários: só administradores e master, e ainda com a permissão do grupo.
