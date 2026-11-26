@@ -163,3 +163,21 @@ Perguntas sem resposta vão para `data/perguntas_sem_resposta.jsonl`: é a lista
 
 O plano gratuito "dorme" após ~15 min sem uso e a primeira pergunta depois disso pode levar de 30 a 60 s.
 A tela mostra "digitando…" nesse tempo e o cliente espera até 30 s antes de avisar que está indisponível.
+
+
+## Evolução assistida do catálogo (3 Agents + Master)
+
+Perguntas de **dados** que a Lumi não sabe responder viram propostas de consulta nova, sem ninguém escrever código:
+
+1. **Analista (Agent 1)** lê `data/perguntas_sem_resposta.jsonl`, agrupa e propõe (criar consulta, FAQ, já existe ou não suportado), com expectativas calculadas sobre os dados de teste.
+2. **Construtor (Agent 2)** cria a consulta como **especificação** (dados, não código) usando só as peças de `evolucao/esquema.py`.
+3. **Tester (Agent 3)** compara proposta + `evolucao/checagens.py` (código fixo) com o que foi criado. Escreve o resultado esperado, **sela** (SHA-256) e só então executa. Revisa permissões e regras por módulo (ex.: orçamento exige data de retirada e de devolução).
+4. **Master** lê o relatório completo e decide: `python -m evolucao ver EV-0001`, `python -m evolucao decidir EV-0001 --aprovar --por "Nome"`. O que o Tester reprovou não pode ser aprovado; ao aprovar, as checagens fixas rodam de novo.
+
+```
+python -m evolucao rodar      # precisa de GEMINI_API_KEY
+python -m evolucao listar
+python -m evolucao desativar NOME --por "Nome"
+```
+
+Ainda não ligado ao `/chat`: aprovadas ficam em `data/evolucao/catalogo.json`; falta o executor genérico no front e a tela do Master.
