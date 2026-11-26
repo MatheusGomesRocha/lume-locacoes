@@ -195,3 +195,43 @@ def test_gerar_resposta_teto_diario_nao_chama_o_modelo():
 
 def test_gerar_resposta_corta_texto_gigante():
     assert len(gerar_resposta(Falso("a" * 5000), LimitadorDiario(5), "x", [], TRECHOS)) == llm.TAMANHO_MAXIMO_RESPOSTA
+
+
+# ---------- repetição quando o Gemini limita (429) ----------
+def _cliente_que_responde(codigos):
+    import httpx
+    chamadas = []
+
+    def responder(req):
+        chamadas.append(1)
+        c = codigos[min(len(chamadas) - 1, len(codigos) - 1)]
+        corpo = {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]} if c == 200 else {}
+        return httpx.Response(c, json=corpo)
+    return httpx.Client(transport=httpx.MockTransport(responder)), chamadas
+
+
+def test_429_passageiro_e_repetido(monkeypatch):
+    from app import llm
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+    cliente, chamadas = _cliente_que_responde([429, 429, 200])
+    p = llm.ProvedorGemini("k", cliente=cliente)
+    p.tentativas = 3
+    assert p.gerar("s", "u") == "ok" and len(chamadas) == 3
+
+
+def test_429_persistente_vira_erro_sem_repetir_para_sempre(monkeypatch):
+    from app import llm
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+    cliente, chamadas = _cliente_que_responde([429])
+    with pytest.raises(llm.ErroLLM, match="429"):
+        llm.ProvedorGemini("k", cliente=cliente).gerar("s", "u")
+    assert len(chamadas) == 2   # padrão: 1 repetição
+
+
+def test_erro_que_nao_passa_sozinho_nao_e_repetido(monkeypatch):
+    from app import llm
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+    cliente, chamadas = _cliente_que_responde([400])
+    with pytest.raises(llm.ErroLLM):
+        llm.ProvedorGemini("k", cliente=cliente).gerar("s", "u")
+    assert len(chamadas) == 1

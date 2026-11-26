@@ -219,6 +219,12 @@ def fala_de_usuario_do_sistema(pergunta: str) -> bool:
     return bool(_USUARIO.search(p)) and not _ALVO_CERTO.search(p)
 
 
+def pede_acao(pergunta: str) -> bool:
+    """Pede para criar/cadastrar/excluir algo (e não é uma dúvida de 'como fazer')."""
+    p = _sem_acento(pergunta)
+    return bool(_ACAO.search(p)) and not _COMO.search(p)
+
+
 def parece_pedido_de_acao_ou_dados(pergunta: str, historico: list[str] | None = None) -> bool:
     """True se vale perguntar ao LLM se isto é uma consulta/ação. Dúvidas de 'como fazer' seguem para o FAQ."""
     p = _sem_acento(pergunta)

@@ -11,6 +11,7 @@ com o método `gerar(sistema, usuario)`.
 import json
 import logging
 import os
+import time
 import threading
 from dataclasses import dataclass, field
 from datetime import date
@@ -61,11 +62,32 @@ class ProvedorGemini:
     temperatura = 0.2
     max_saida = 400
     json = False
+    # 429 (limite por minuto da cota gratuita) e 503 (sobrecarga) costumam passar sozinhos: tenta de novo, esperando um pouco mais a cada vez.
+    tentativas = 2
+    espera = 1.0
 
     def __init__(self, chave: str, modelo: str = MODELO_PADRAO, cliente: httpx.Client | None = None, tempo_limite: float = 12.0):
         self.chave = chave
         self.modelo = modelo
         self._cliente = cliente or httpx.Client(timeout=tempo_limite)
+
+    def _enviar(self, corpo: dict) -> httpx.Response:
+        for tentativa in range(1, self.tentativas + 1):
+            try:
+                r = self._cliente.post(URL_GEMINI.format(modelo=self.modelo), json=corpo, headers={"x-goog-api-key": self.chave})
+            except httpx.HTTPError as e:
+                raise ErroLLM(f"falha de rede: {type(e).__name__}") from e
+            if r.status_code in (429, 503) and tentativa < self.tentativas:
+                try:
+                    pedido = float(r.headers.get("retry-after", 0))
+                except ValueError:
+                    pedido = 0.0
+                time.sleep(min(max(pedido, self.espera * tentativa ** 2), 30.0))
+                continue
+            if r.status_code != 200:
+                raise ErroLLM(f"o provedor respondeu {r.status_code}")
+            return r
+        raise ErroLLM("o provedor não respondeu")
 
     def gerar(self, sistema: str, usuario: str) -> str:
         corpo = {
@@ -73,12 +95,7 @@ class ProvedorGemini:
             "contents": [{"role": "user", "parts": [{"text": usuario}]}],
             "generationConfig": {"temperature": self.temperatura, "maxOutputTokens": self.max_saida, **({"responseMimeType": "application/json"} if self.json else {})},
         }
-        try:
-            r = self._cliente.post(URL_GEMINI.format(modelo=self.modelo), json=corpo, headers={"x-goog-api-key": self.chave})
-        except httpx.HTTPError as e:
-            raise ErroLLM(f"falha de rede: {type(e).__name__}") from e
-        if r.status_code != 200:
-            raise ErroLLM(f"o provedor respondeu {r.status_code}")
+        r = self._enviar(corpo)
         try:
             partes = r.json()["candidates"][0]["content"]["parts"]
             texto = "".join(p.get("text", "") for p in partes).strip()
@@ -98,12 +115,7 @@ class ProvedorGemini:
             "toolConfig": {"functionCallingConfig": {"mode": "AUTO"}},
             "generationConfig": {"temperature": 0, "maxOutputTokens": 400},
         }
-        try:
-            r = self._cliente.post(URL_GEMINI.format(modelo=self.modelo), json=corpo, headers={"x-goog-api-key": self.chave})
-        except httpx.HTTPError as e:
-            raise ErroLLM(f"falha de rede: {type(e).__name__}") from e
-        if r.status_code != 200:
-            raise ErroLLM(f"o provedor respondeu {r.status_code}")
+        r = self._enviar(corpo)
         try:
             partes = r.json()["candidates"][0]["content"]["parts"]
         except (KeyError, IndexError, TypeError, ValueError) as e:

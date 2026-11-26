@@ -40,6 +40,7 @@ def provedor_do_juiz() -> ProvedorGemini | None:
     if not chave:
         return None
     p = ProvedorGemini(chave, os.getenv("IA_JUIZ_MODELO", os.getenv("IA_LLM_MODELO", MODELO_PADRAO)).strip() or MODELO_PADRAO, tempo_limite=30.0)
+    p.tentativas, p.espera = 5, 4.0  # o juiz não tem pressa: espera o limite por minuto passar em vez de errar
     p.temperatura, p.max_saida, p.json = 0.0, 600, True
     return p
 

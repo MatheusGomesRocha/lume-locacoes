@@ -194,6 +194,8 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
         texto = redigir_com_dados(provedor_llm, limitador_llm, pergunta, historico, resultados, dados.hoje)
         return _resposta_agente(texto or "Não consegui montar a resposta agora. Tente de novo em instantes.", encontrou=texto is not None, gerada_por_llm=texto is not None)
 
+    if ferramentas.pede_acao(pergunta) and ferramentas.fala_de_usuario_do_sistema(pergunta):
+        return _resposta_agente(TEXTO_USUARIO_DO_SISTEMA)  # antes do modelo: não depende dele nem gasta cota
     if provedor_llm is None or not ferramentas.parece_pedido_de_acao_ou_dados(pergunta, historico):
         return None
     chave = chave_da_conversa("decisao", VERSAO_DO_CONTEUDO, pergunta, historico, dados.ultimo_id, dados.hoje or "")
