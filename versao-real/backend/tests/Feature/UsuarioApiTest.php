@@ -162,9 +162,9 @@ class UsuarioApiTest extends TestCase
     {
         $u = $this->criarUsuario(['clientes.ver'], Usuario::USUARIO, 'comum@lume.test');
         $token = TokenAcesso::emitir($u);
-        $dados = $this->dados(['email' => 'comum@lume.test', 'grupo_id' => $u->grupo_id]);
+        $dados = $this->dados(['email' => 'comum@lume.test', 'grupo_id' => $u->grupo_id, 'senha' => null]);
 
-        $this->putJson("/api/usuarios/{$u->id}", $dados)->assertOk(); // só editar não derruba
+        $this->putJson("/api/usuarios/{$u->id}", $dados)->assertOk(); // só editar, sem senha nova, não derruba
         $this->assertDatabaseHas('tokens_acesso', ['token_hash' => TokenAcesso::hash($token)]);
 
         $this->putJson("/api/usuarios/{$u->id}", array_merge($dados, ['senha' => 'outrasenha1']))->assertOk();
