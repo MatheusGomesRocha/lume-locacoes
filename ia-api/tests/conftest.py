@@ -10,6 +10,8 @@ def isolar_ambiente(tmp_path, monkeypatch):
     monkeypatch.delenv("IA_API_TOKEN", raising=False)
     main.limitador.limpar()
     main.limitador.maximo = 1000
+    main.cache.limpar()
+    main.cache.acertos = main.cache.erros = 0
     yield
     main.limitador.limpar()
 

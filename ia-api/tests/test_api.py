@@ -256,7 +256,7 @@ def test_llm_com_erro_cai_no_faq(com_llm):
 def test_teto_diario_do_llm_cai_no_faq(com_llm):
     p = com_llm(ProvedorFalso(), limite=1)
     assert perguntar("Como criar um orçamento?")["gerada_por_llm"] is True
-    assert perguntar("Como criar um orçamento?")["gerada_por_llm"] is False
+    assert perguntar("Como aprovar um orçamento?")["gerada_por_llm"] is False  # outra pergunta: cota esgotada, cai no FAQ
     assert len(p.chamadas) == 1
 
 

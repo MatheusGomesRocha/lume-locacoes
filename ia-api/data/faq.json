@@ -419,7 +419,7 @@
       "robô",
       "dúvidas"
     ],
-    "resposta": "Eu respondo dúvidas de uso do sistema, como criar orçamentos, aprovar, registrar pagamentos ou cadastrar produtos. Mostro de qual assunto vem cada resposta e sugiro perguntas parecidas."
+    "resposta": "Eu respondo dúvidas de uso do sistema, como criar orçamentos, aprovar, registrar pagamentos ou cadastrar produtos. Também consulto números (por exemplo, quantos orçamentos aprovados você tem), abro o cadastro de clientes, produtos e orçamentos já preenchido e peço a sua confirmação antes de excluir qualquer registro."
   },
   {
     "id": "assist-dados",
@@ -432,7 +432,7 @@
       "total",
       "listar"
     ],
-    "resposta": "Ainda não. Por enquanto eu explico como usar as telas, mas não consulto os seus dados. Para ver números, use o Painel, a lista de Orçamentos ou o Financeiro."
+    "resposta": "Sim. Pergunte, por exemplo, \"quantos orçamentos aprovados eu tenho?\" ou \"quanto tenho a receber?\". Eu consulto o sistema e respondo com os números. Também dá para ver tudo no Painel, na lista de Orçamentos ou no Financeiro."
   },
   {
     "id": "demo-dados",

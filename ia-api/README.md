@@ -66,6 +66,14 @@ A chave fica só no servidor. Crie uma em https://aistudio.google.com/apikey (pl
 veja o AI Studio). Os termos do plano gratuito permitem que o Google use o conteúdo enviado, então não coloque dados
 sensíveis no FAQ.
 
+### Cache
+
+A mesma conversa não paga duas vezes (`app/cache.py`): a resposta de ajuda redigida pelo modelo e a decisão de ferramenta ficam em
+memória por até 24 h (`IA_CACHE_TTL`, em segundos; `0` desliga) e até `IA_CACHE_MAX` itens. A chave é a pergunta (sem acento, caixa
+ou pontuação) + o contexto da conversa + uma versão do conteúdo (FAQ, instruções, ferramentas): editou o FAQ, o cache antigo deixa de valer.
+**Nunca** entram no cache respostas montadas com dados do sistema (os números mudam) nem falhas do modelo. `/health` mostra
+`llm_chamadas_hoje` e as estatísticas do cache (`acertos`, `erros`, `taxa_de_acerto`).
+
 ## Variáveis de ambiente
 
 | Variável | Padrão | Para que serve |
@@ -75,6 +83,8 @@ sensíveis no FAQ.
 | `GEMINI_API_KEY` | _(vazio: LLM desligado)_ | Chave do Google AI Studio |
 | `IA_LLM_MODELO` | `gemini-flash-lite-latest` | Modelo do Gemini; troque se o Google renomear |
 | `IA_LLM_LIMITE_DIARIO` | `200` | Chamadas ao LLM por dia; `0` desliga |
+| `IA_CACHE_TTL` | `86400` | Segundos que uma resposta fica no cache; `0` desliga |
+| `IA_CACHE_MAX` | `500` | Máximo de itens no cache |
 | `IA_LIMITE_POR_MINUTO` | `30` | Perguntas por minuto por visitante (429 depois disso) |
 | `IA_LIMITE_CONFIANCA` | `0.30` | Abaixo disso a pergunta vira "não encontrei" e é registrada |
 

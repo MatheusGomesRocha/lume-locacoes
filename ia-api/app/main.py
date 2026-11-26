@@ -15,9 +15,10 @@ from pydantic import BaseModel, Field
 from typing import Annotated, Any
 
 from app import ferramentas
+from app.cache import cache_do_ambiente, chave_da_conversa, versao_do_conteudo
 from app.busca import BaseConhecimento, Contexto, pede_dados_do_sistema
 from app.limite import LimitadorDeRequisicoes
-from app.llm import AJUDA, LimitadorDiario, criar_provedor_do_ambiente, decidir_acao, gerar_resposta, limite_diario_do_ambiente, redigir_com_dados
+from app.llm import AJUDA, INSTRUCOES, INSTRUCOES_AGENTE, LimitadorDiario, criar_provedor_do_ambiente, decidir_acao, gerar_resposta, limite_diario_do_ambiente, redigir_com_dados
 
 PASTA_DADOS = Path(__file__).resolve().parent.parent / "data"
 
@@ -49,6 +50,10 @@ _trava_log = threading.Lock()
 # LLM opcional (GEMINI_API_KEY). Sem a chave, tudo continua funcionando só com o FAQ.
 provedor_llm = criar_provedor_do_ambiente()
 limitador_llm = LimitadorDiario(limite_diario_do_ambiente())
+# Cache das respostas do modelo (ver app/cache.py). IA_CACHE_TTL=0 desliga.
+cache = cache_do_ambiente()
+# Muda quando o FAQ, as instruções ou as ferramentas mudam: respostas antigas deixam de valer.
+VERSAO_DO_CONTEUDO = versao_do_conteudo((PASTA_DADOS / "faq.json").read_text(encoding="utf-8"), INSTRUCOES, INSTRUCOES_AGENTE, json.dumps(ferramentas.declaracoes(), sort_keys=True))
 # Trechos abaixo desta nota não entram no prompt do LLM.
 NOTA_MINIMA_DO_TRECHO = 0.15
 
@@ -104,7 +109,8 @@ def raiz():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "perguntas_na_base": len(base.itens), "llm": provedor_llm is not None}
+    return {"status": "ok", "perguntas_na_base": len(base.itens), "llm": provedor_llm is not None,
+            "llm_chamadas_hoje": limitador_llm.usadas, "cache": cache.estatisticas()}
 
 
 @app.get("/faq", dependencies=[Depends(exigir_token)])
@@ -134,15 +140,20 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
 
     if provedor_llm is None or not ferramentas.parece_pedido_de_acao_ou_dados(pergunta, historico):
         return None
-    decisao = decidir_acao(provedor_llm, limitador_llm, pergunta, historico, dados.hoje)
-    if decisao is None:
-        return None
+    chave = chave_da_conversa("decisao", VERSAO_DO_CONTEUDO, pergunta, historico, dados.ultimo_id, dados.hoje or "")
+    decisao = cache.obter(chave)
+    em_cache = decisao is not None
+    if not em_cache:
+        decisao = decidir_acao(provedor_llm, limitador_llm, pergunta, historico, dados.hoje)
+        if decisao is None:
+            return None
+        cache.guardar(chave, decisao)  # a decisão não carrega dados do sistema, só qual ferramenta usar
     if decisao.chamadas:
         consultas = [c for c in decisao.chamadas if ferramentas.eh_consulta(c["nome"])]
         if consultas:  # consultar e agir no mesmo pedido não é suportado: a consulta vem primeiro
-            return _resposta_agente("", consultas=consultas)
+            return _resposta_agente("", consultas=consultas, em_cache=em_cache)
         acoes = decisao.chamadas[:1]  # uma ação por vez: cada uma tem a sua confirmação
-        return _resposta_agente(TEXTO_DA_ACAO[acoes[0]["nome"]], acoes=acoes)
+        return _resposta_agente(TEXTO_DA_ACAO[acoes[0]["nome"]], acoes=acoes, em_cache=em_cache)
     if decisao.texto and decisao.texto.strip().strip(".!").upper() != AJUDA:
         return _resposta_agente(decisao.texto[:400])
     return None
@@ -198,8 +209,14 @@ def chat(dados: PerguntaIn):
         trechos = [(r.modulo, r.pergunta, r.resposta) for r in resultados if r.score >= NOTA_MINIMA_DO_TRECHO]
         if assunto:  # conversa com assunto definido: só trechos dele (o bloqueio acima garante que existe algum)
             trechos = [t for t in trechos if t[0] == assunto] or trechos
-        redigida = gerar_resposta(provedor_llm, limitador_llm, pergunta, contexto.perguntas_anteriores, trechos, assunto or base.modulo_do_item(contexto.ultimo_id))
+        chave = chave_da_conversa("ajuda", VERSAO_DO_CONTEUDO, pergunta, contexto.perguntas_anteriores, contexto.ultimo_id)
+        redigida = cache.obter(chave)
+        em_cache = redigida is not None
+        if not em_cache:
+            redigida = gerar_resposta(provedor_llm, limitador_llm, pergunta, contexto.perguntas_anteriores, trechos, assunto or base.modulo_do_item(contexto.ultimo_id))
+            cache.guardar(chave, redigida)  # None (falha do modelo) não é guardado
         return {
+            "em_cache": em_cache,
             "encontrou": True,
             "resposta": redigida or melhor.resposta,
             "gerada_por_llm": redigida is not None,
