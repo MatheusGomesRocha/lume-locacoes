@@ -14,10 +14,10 @@ def _n(t) -> str:
     return "".join(c for c in unicodedata.normalize("NFD", str(t).lower()) if unicodedata.category(c) != "Mn").strip()
 
 
-def _casa(busca: str, nome: str) -> bool:
-    """Mesma ideia do front: todas as palavras da busca aparecem no nome (sem acento, sem maiúsculas)."""
-    alvo = _n(nome)
-    return all(p in alvo for p in _n(busca).split())
+def _casa(busca: str, nome: str, singular: bool = False) -> bool:
+    """Mesma regra do front: cada palavra da busca é uma palavra INTEIRA do nome (sem acento, sem maiúsculas)."""
+    from app.agente import casa_nome
+    return casa_nome(busca, nome, singular)
 
 
 class Loja:
@@ -41,7 +41,7 @@ class Loja:
         if nome == "localizar_produtos":
             if "produtos" in self.sem_permissao:
                 return {"erro": "o usuário não tem permissão para ver estes dados"}
-            return {"itens": [{"busca": b, "linhas": [{"id": p["id"], "nome": p["nome"], "valor_diaria": p["valor_diaria"]} for p in self.produtos if p["ativo"] and _casa(b, p["nome"])][:6]} for b in a["buscas"]]}
+            return {"itens": [{"busca": b, "linhas": [{"id": p["id"], "nome": p["nome"], "valor_diaria": p["valor_diaria"]} for p in self.produtos if p["ativo"] and _casa(b, p["nome"], True)][:6]} for b in a["buscas"]]}
         if nome == "verificar_disponibilidade":
             faltas = []
             for i in a["itens"]:

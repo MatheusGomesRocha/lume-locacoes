@@ -47,6 +47,18 @@ def calcular_total(itens: list[dict], n_diarias: int, desconto: float = 0.0) -> 
     return max(0, centavos - round(desconto * 100)) / 100
 
 
+def _palavras(texto: str, singular: bool = False) -> list[str]:
+    ps = re.split(r"[^a-z0-9]+", _n(texto))
+    return [_singular(p) if singular else p for p in ps if p]
+
+
+def casa_nome(busca: str, nome: str, singular: bool = False) -> bool:
+    """Cada palavra da busca é uma PALAVRA INTEIRA do nome: "Maria" não é "Mariana" e "Vitor" não é "Vitória".
+    O front já filtra assim; repetir aqui garante que o agente nunca escolha um nome que o usuário não disse."""
+    alvo, q = set(_palavras(nome, singular)), _palavras(busca, singular)
+    return bool(q) and all(p in alvo for p in q)
+
+
 def _singular(texto: str) -> str:
     """"mesas redondas" -> "mesa redonda": o cadastro usa o singular, o usuário fala no plural."""
     def um(p: str) -> str:
@@ -367,7 +379,7 @@ def _aplicar_resultados(e: dict, resultados: list, hoje: str | None) -> dict:
             return _fim(f"Não consegui consultar os dados agora ({str(dado['erro'])[:80]}). Não criei nada.")
         if nome == "localizar_clientes":
             r["cliente_buscado"] = True
-            linhas = [c for c in dado.get("linhas", []) if isinstance(c, dict) and isinstance(c.get("id"), int) and _txt(c.get("nome"))][:MAX_CANDIDATOS]
+            linhas = [c for c in dado.get("linhas", []) if isinstance(c, dict) and isinstance(c.get("id"), int) and _txt(c.get("nome")) and casa_nome(r.get("cliente_nome", ""), c["nome"])][:MAX_CANDIDATOS]
             if e["fluxo"] == "cliente":
                 if linhas:
                     r["cliente_cand"] = [{"id": c["id"], "nome": c["nome"], "cidade": _txt(c.get("cidade"), 60)} for c in linhas]
@@ -382,7 +394,8 @@ def _aplicar_resultados(e: dict, resultados: list, hoje: str | None) -> dict:
             grupos = dado.get("itens", []) if isinstance(dado.get("itens"), list) else []
             for item_r, grupo in zip(pendentes, grupos):
                 item_r["buscado"] = True
-                linhas = [c for c in (grupo.get("linhas", []) if isinstance(grupo, dict) else []) if isinstance(c, dict) and isinstance(c.get("id"), int) and _txt(c.get("nome"))][:MAX_CANDIDATOS]
+                linhas = [c for c in (grupo.get("linhas", []) if isinstance(grupo, dict) else []) if isinstance(c, dict) and isinstance(c.get("id"), int) and _txt(c.get("nome"))
+                          and (casa_nome(item_r["produto"], c["nome"], True) or (_txt(c.get("codigo"), 40) and _n(c["codigo"]) == _n(item_r["produto"])))][:MAX_CANDIDATOS]
                 exatos = [c for c in linhas if _singular(c["nome"]) == _singular(item_r["produto"])]
                 if len(exatos) == 1 or len(linhas) == 1:
                     _fixar_produto(item_r, exatos[0] if exatos else linhas[0])
@@ -490,7 +503,8 @@ def continuar(estado, mensagem: str, resultados, hoje: str | None) -> dict | Non
         return _avancar(e, hoje)
 
     if passo == "evento":
-        r["evento"] = re.sub(r"^(?:o\s+)?(?:evento\s+)?(?:é|e|será|sera)?\s*(?:um\s+|uma\s+)?(?:de\s+)?", "", msg, flags=re.I).strip()[:120] or msg[:120]
+        limpo = re.sub(r"^(?:(?:é|e|será|sera|vai ser)\s+)?(?:(?:o|a|um|uma)\s+)?(?:evento\s+(?:de\s+|do\s+|da\s+)?)?", "", msg.strip(), flags=re.I).strip(" .") or msg.strip()
+        r["evento"] = (limpo[:1].upper() + limpo[1:])[:120]
         return _avancar(e, hoje)
 
     if passo in ("datas", "devolucao"):
@@ -524,14 +538,35 @@ def continuar(estado, mensagem: str, resultados, hoje: str | None) -> dict | Non
     return None
 
 
+def _dias_depois(msg: str) -> int | None:
+    """"no dia seguinte" -> 1, "mesmo dia" -> 0, "3 dias depois" / "3 diárias" -> 3. None = a mensagem não diz."""
+    t = _n(msg)
+    if re.search(r"mesmo dia", t):
+        return 0
+    if re.search(r"dia seguinte|outro dia|dia depois|amanha", t):
+        return 1
+    m = re.search(r"(\d{1,2})\s*(?:dias?\s+(?:depois|apos|de\s+aluguel)|diarias?)", t)
+    return int(m.group(1)) if m and 0 < int(m.group(1)) <= 60 else None
+
+
+def _somar_dias(iso: str, n: int) -> str:
+    return date.fromordinal(date.fromisoformat(iso).toordinal() + n).isoformat()
+
+
 def _ler_datas(e: dict, msg: str, hoje: str | None) -> dict:
     r = e["rascunho"]
     datas = extrair_datas(msg, hoje)
-    if not datas and re.search(r"mesmo dia", _n(msg)) and r.get("data_retirada"):
-        datas = [r["data_retirada"]]
+    depois = _dias_depois(msg)
+    if e["aguardando"] == "devolucao" and not datas and depois is not None and r.get("data_retirada"):
+        datas = [_somar_dias(r["data_retirada"], depois)]
+        e["aguardando"] = "datas_ok"
+    elif len(datas) == 1 and depois is not None:  # "dia 26/11, devolvendo no dia seguinte"
+        datas = [datas[0], _somar_dias(datas[0], depois)]
     if not datas:
         return _resp(e, e["aguardando"], "Não entendi a data. Use o formato dia/mês/ano, por exemplo 26/11/2026.")
-    if e["aguardando"] == "devolucao":
+    if e["aguardando"] == "datas_ok":
+        ret, dev = r["data_retirada"], datas[0]
+    elif e["aguardando"] == "devolucao":
         ret, dev = r["data_retirada"], datas[0]
     elif len(datas) == 1:
         r["data_retirada"] = datas[0]

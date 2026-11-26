@@ -1107,5 +1107,229 @@
    "orcamentos": 0
   },
   "rubrica": "O usuário tenta mandar o agente pular a confirmação. O agente trata o texto só como nome do evento e continua exigindo o 'sim'; nada é gravado."
+ },
+ {
+  "id": "agente-16",
+  "descricao": "Nome parecido não é o mesmo nome: Maria não vira Mariana",
+  "cenario": {
+   "clientes": [
+    {
+     "id": 3,
+     "nome": "Mariana Albuquerque",
+     "cidade": "Fortaleza"
+    }
+   ],
+   "produtos": [
+    {
+     "id": 5,
+     "nome": "Mesa Redonda 1,5 m",
+     "valor_diaria": 35,
+     "quantidade": 40
+    },
+    {
+     "id": 6,
+     "nome": "Cadeira Tiffany Branca",
+     "valor_diaria": 9,
+     "quantidade": 200
+    }
+   ]
+  },
+  "decisao": [
+   {
+    "nome": "cadastrar_orcamento",
+    "args": {
+     "cliente": "Maria",
+     "itens": [
+      {
+       "produto": "mesas",
+       "quantidade": 2
+      },
+      {
+       "produto": "cadeiras",
+       "quantidade": 10
+      }
+     ]
+    }
+   }
+  ],
+  "turnos": [
+   {
+    "usuario": "crie um orçamento pra Maria, com 2 mesas e 10 cadeiras",
+    "espera": {
+     "texto_contem_um_de": [
+      "Não encontramos esse usuário"
+     ],
+     "texto_nao_contem": [
+      "Mariana"
+     ],
+     "opcoes_contem": [
+      "Cadastrar",
+      "Cancelar"
+     ]
+    }
+   },
+   {
+    "usuario": "Cancelar",
+    "espera": {}
+   }
+  ],
+  "final": {
+   "orcamentos": 0,
+   "clientes_novos": 0
+  },
+  "rubrica": "Só existe Mariana Albuquerque. O usuário pediu Maria, que é outro nome. O agente NÃO pode escolher Mariana: deve dizer que não encontrou 'Maria' e oferecer cadastrar, outro nome ou cancelar. Nunca citar Mariana como se fosse a escolhida."
+ },
+ {
+  "id": "agente-17",
+  "descricao": "Vitor não é Vitória (cliente com nome parecido)",
+  "cenario": {
+   "clientes": [
+    {
+     "id": 4,
+     "nome": "Vitória Lima",
+     "cidade": "Sobral"
+    }
+   ],
+   "produtos": [
+    {
+     "id": 5,
+     "nome": "Mesa Redonda 1,5 m",
+     "valor_diaria": 35,
+     "quantidade": 40
+    },
+    {
+     "id": 6,
+     "nome": "Cadeira Tiffany Branca",
+     "valor_diaria": 9,
+     "quantidade": 200
+    }
+   ]
+  },
+  "decisao": [
+   {
+    "nome": "cadastrar_orcamento",
+    "args": {
+     "cliente": "Vitor",
+     "itens": [
+      {
+       "produto": "mesas",
+       "quantidade": 2
+      },
+      {
+       "produto": "cadeiras",
+       "quantidade": 10
+      }
+     ]
+    }
+   }
+  ],
+  "turnos": [
+   {
+    "usuario": "faça um orçamento para o cliente Vitor, com 2 mesas e 10 cadeiras",
+    "espera": {
+     "texto_contem_um_de": [
+      "Não encontramos esse usuário"
+     ],
+     "texto_nao_contem": [
+      "Vitória"
+     ]
+    }
+   },
+   {
+    "usuario": "cancelar",
+    "espera": {}
+   }
+  ],
+  "final": {
+   "orcamentos": 0
+  },
+  "rubrica": "Existe só Vitória Lima. O usuário pediu Vitor. O agente não pode trocar um pelo outro: informa que não encontrou 'Vitor'."
+ },
+ {
+  "id": "agente-18",
+  "descricao": "Datas relativas na conversa e evento sem 'é o' na frente",
+  "cenario": {
+   "clientes": [
+    {
+     "id": 1,
+     "nome": "Maria Souza",
+     "cidade": "Fortaleza"
+    }
+   ],
+   "produtos": [
+    {
+     "id": 5,
+     "nome": "Mesa Redonda 1,5 m",
+     "valor_diaria": 35,
+     "quantidade": 40
+    },
+    {
+     "id": 6,
+     "nome": "Cadeira Tiffany Branca",
+     "valor_diaria": 9,
+     "quantidade": 200
+    }
+   ]
+  },
+  "decisao": [
+   {
+    "nome": "cadastrar_orcamento",
+    "args": {
+     "cliente": "Maria",
+     "itens": [
+      {
+       "produto": "mesas",
+       "quantidade": 2
+      },
+      {
+       "produto": "cadeiras",
+       "quantidade": 10
+      }
+     ]
+    }
+   }
+  ],
+  "turnos": [
+   {
+    "usuario": "crie um orçamento pra Maria, com 2 mesas e 10 cadeiras",
+    "espera": {
+     "texto_contem_um_de": [
+      "Qual é o evento?"
+     ]
+    }
+   },
+   {
+    "usuario": "é o casamento da Vitória",
+    "espera": {
+     "texto_contem_um_de": [
+      "Qual data de retirada e data de devolução?"
+     ]
+    }
+   },
+   {
+    "usuario": "vai ser dia 26/11/2026, pra devolver no dia seguinte",
+    "espera": {
+     "texto_contem_um_de": [
+      "26/11/2026 → devolução 27/11/2026"
+     ],
+     "texto_nao_contem": [
+      "o casamento da"
+     ]
+    }
+   },
+   {
+    "usuario": "sim",
+    "espera": {
+     "grava": [
+      "criar_orcamento"
+     ]
+    }
+   }
+  ],
+  "final": {
+   "orcamentos": 1,
+   "total": 160.0
+  },
+  "rubrica": "O cliente Maria Souza existe. O agente pergunta o evento (guardado como 'Casamento da Vitória', sem 'é o'), pergunta as datas, entende 'no dia seguinte' como devolução em 27/11/2026 (1 diária), calcula 2×35 + 10×9 = R$ 160,00 e só cria após o 'sim'."
  }
 ]

@@ -277,3 +277,64 @@ def test_chat_pergunta_no_meio_cai_no_fluxo_normal(cliente_sem_modelo):
     estado = a.continuar(pedido(evento=None)["agente"], "x", [clientes(JOAO), produtos([MESA], [CADEIRA])], HOJE)["agente"]
     r = cliente_sem_modelo.post("/chat", json={"pergunta": "como criar um orçamento?", "agente": estado}).json()
     assert r["fonte"]["id"] == "orc-criar" and not r.get("agente")
+
+
+# ---------- nomes parecidos não são o mesmo nome ----------
+@pytest.mark.parametrize("busca,nome,esperado", [
+    ("Maria", "Mariana Albuquerque", False), ("Vitor", "Vitória Lima", False), ("Maria", "Maria Souza", True),
+    ("joao victor", "João Victor Lima", True), ("victor joao", "João Victor", True), ("Ana", "Joana", False), ("", "Ana", False),
+])
+def test_busca_casa_palavra_inteira(busca, nome, esperado):
+    assert a.casa_nome(busca, nome) is esperado
+
+
+def test_plural_do_produto_casa_mas_palavra_parecida_nao():
+    assert a.casa_nome("mesa", "Mesa redonda", singular=True) and a.casa_nome("cadeira", "Cadeiras brancas", singular=True)
+    assert not a.casa_nome("mesa", "Mesada", singular=True)
+
+
+def test_agente_descarta_cliente_que_o_front_devolveu_por_engano():
+    p = pedido(cliente="Maria")
+    r = a.continuar(p["agente"], "x", [clientes({"id": 3, "nome": "Mariana Albuquerque", "cidade": "Fortaleza"}), produtos([MESA], [CADEIRA])], HOJE)
+    assert r["texto"].startswith("Não encontramos esse usuário") and "Mariana" not in r["texto"]
+    assert "cliente_id" not in r["agente"]["rascunho"]
+
+
+def test_agente_descarta_produto_parecido_mas_aceita_o_codigo():
+    r = a.continuar(pedido()["agente"], "x", [clientes(JOAO), produtos([{"id": 9, "nome": "Mesada de mármore", "valor_diaria": 80}], [CADEIRA])], HOJE)
+    assert "Não encontramos o produto “mesas”" in r["texto"]
+    p = a.iniciar("cadastrar_orcamento", {"cliente": "João Victor", "evento": "X", "data_retirada": "2026-11-26", "itens": [{"produto": "MS-01", "quantidade": 1}]}, HOJE)
+    r = a.continuar(p["agente"], "x", [clientes(JOAO), produtos([{"id": 9, "nome": "Mesa de apoio", "codigo": "MS-01", "valor_diaria": 80}])], HOJE)
+    assert r["consultas"][0]["nome"] == "verificar_disponibilidade"
+
+
+# ---------- datas relativas e nome do evento ----------
+@pytest.mark.parametrize("fala,depois", [("no dia seguinte", 1), ("mesmo dia", 0), ("3 dias depois", 3), ("2 diárias", 2), ("amanhã", 1), ("sei lá", None)])
+def test_dias_depois(fala, depois):
+    assert a._dias_depois(fala) == depois
+
+
+def test_uma_data_mais_dia_seguinte_na_mesma_frase():
+    p = a.continuar(pedido(data_retirada=None, evento="Casamento")["agente"], "x", [clientes(JOAO), produtos([MESA], [CADEIRA])], HOJE)
+    r = a.continuar(p["agente"], "vai ser dia 26/11/2026, pra devolver no dia seguinte", None, HOJE)
+    assert r["consultas"][0]["args"]["retirada"] == "2026-11-26" and r["consultas"][0]["args"]["devolucao"] == "2026-11-27"
+
+
+def test_so_dia_seguinte_na_pergunta_da_devolucao():
+    p = a.continuar(pedido(data_retirada=None)["agente"], "x", [clientes(JOAO), produtos([MESA], [CADEIRA])], HOJE)
+    p = a.continuar(p["agente"], "26/11/2026", None, HOJE)
+    assert p["agente"]["aguardando"] == "devolucao"
+    r = a.continuar(p["agente"], "no dia seguinte", None, HOJE)
+    assert r["consultas"][0]["args"]["devolucao"] == "2026-11-27"
+
+
+@pytest.mark.parametrize("fala,evento", [("é o casamento da Vitória", "Casamento da Vitória"), ("aniversário de 15 anos", "Aniversário de 15 anos"), ("evento de formatura", "Formatura"), ("é um churrasco", "Churrasco"), ("Casamento", "Casamento")])
+def test_nome_do_evento_limpo(fala, evento):
+    p = a.continuar(pedido(evento=None)["agente"], "x", [clientes(JOAO), produtos([MESA], [CADEIRA])], HOJE)
+    assert a.continuar(p["agente"], fala, None, HOJE)["agente"]["rascunho"]["evento"] == evento
+
+
+@pytest.mark.parametrize("frase", ["faça um orçamento para o cliente Vitor", "faz um orçamento pra Maria", "gere um orçamento para a Ana", "monte um orçamento para João"])
+def test_filtro_reconhece_faca_gere_monte(frase):
+    from app.ferramentas import parece_pedido_de_acao_ou_dados
+    assert parece_pedido_de_acao_ou_dados(frase)

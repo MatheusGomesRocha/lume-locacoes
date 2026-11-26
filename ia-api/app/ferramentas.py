@@ -204,7 +204,7 @@ def _sem_acento(t: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFD", t.lower()) if unicodedata.category(c) != "Mn")
 
 
-_ACAO = re.compile(r"\b(cadastr\w*|cri(?:e|ar|a|ando)|nov[oa]s?|adicion\w*|inclu\w+|registr\w*|exclu\w+|apag\w+|delet\w+|remov\w+|remova|tire|tirar)\b")
+_ACAO = re.compile(r"\b(cadastr\w*|cri(?:e|ar|a|ando)|fac[aeo]|fazer|faz|ger[ae]|gerar|mont[ae]|montar|elabor\w+|prepar\w+|nov[oa]s?|adicion\w*|inclu\w+|registr\w*|exclu\w+|apag\w+|delet\w+|remov\w+|remova|tire|tirar)\b")
 _DADOS = re.compile(r"\b(quanto|quantos|quantas|total|soma|lista\w*|liste|mostr\w+|resumo|me\s+d[aeê]|tenho|temos|ha|faturamento|receb\w+|atras\w+|pendente\w*|vencid\w+|proxim\w+|mais\s+alugad\w+|quais|qual\s+o\s+valor)\b")
 _COMO = re.compile(r"^\s*(como|onde|posso|pode|e\s+possivel|por\s*que|o\s+que\s+(e|significa)|qual\s+a\s+diferenca|quando)\b")
 
