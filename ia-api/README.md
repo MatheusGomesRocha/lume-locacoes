@@ -90,7 +90,7 @@ FAQ e acesso 24/25, contexto 7/8, consulta 12/12, cadastro 6/6, exclusão 5/5, f
 Sem LLM (em processo) os casos de ferramentas dão 0 por construção; o resto dá 100%.
 
 Os 2 erros eram dúvidas de ajuda ("o que mostra o painel?", "e a receber?" após uma explicação) que o modelo mandou para uma consulta de dados.
-Ajustei a instrução do roteador (`INSTRUCOES_AGENTE`, regra 4) para "o que significa/mostra" ir ao FAQ.
+Ajustei a instrução do roteador (`INSTRUCOES_AGENTE`, regra 4) para "o que significa/mostra" ir ao FAQ; já publicado, e os 2 casos passaram na reexecução (a rodada completa não foi repetida).
 
 O que a primeira rodada achou e foi corrigido: "e para aprovar?" depois de "como criar um orçamento" respondia sobre **criar** (o verbo antigo
 competia com o novo) e "oi" / "obrigado" respondiam "não encontrei".
