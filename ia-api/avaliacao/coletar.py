@@ -8,9 +8,10 @@ import httpx
 CASOS = Path(__file__).with_name("casos.json")
 
 
-def carregar_casos(grupo: str | None = None) -> list[dict]:
+def carregar_casos(grupo: str | None = None, sem_modelo: bool = False) -> list[dict]:
+    """`sem_modelo` tira os casos que só passam com o Gemini (ferramentas e busca semântica): é o que o CI roda."""
     casos = json.loads(CASOS.read_text(encoding="utf-8"))
-    return [c for c in casos if not grupo or c["grupo"] == grupo]
+    return [c for c in casos if (not grupo or c["grupo"] == grupo) and not (sem_modelo and c.get("precisa_modelo"))]
 
 
 def corpo_do_caso(caso: dict) -> dict:

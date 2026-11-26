@@ -1,0 +1,28 @@
+name: Avaliação semanal da Lumi
+# Roda todos os casos contra a API publicada (com o Gemini) e reprova se a taxa cair de 90%.
+# Também pode ser disparada à mão em Actions > Avaliação semanal da Lumi > Run workflow.
+on:
+  schedule:
+    - cron: '0 12 * * 1'   # segundas, 12h UTC (9h em Fortaleza)
+  workflow_dispatch:
+
+jobs:
+  avaliar:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: ia-api } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install httpx
+      # A 1ª chamada acorda o servidor gratuito do Render (~50 s); o cliente espera até 60 s.
+      - run: python -m avaliacao --url https://lume-ia.onrender.com --minimo 0.9 --md relatorio.md --salvar respostas.json
+      - if: always()
+        run: cat relatorio.md >> "$GITHUB_STEP_SUMMARY" || true
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avaliacao-semanal
+          path: |
+            ia-api/relatorio.md
+            ia-api/respostas.json

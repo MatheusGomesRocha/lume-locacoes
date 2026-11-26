@@ -76,7 +76,7 @@ ou pontuação) + o contexto da conversa + uma versão do conteúdo (FAQ, instru
 
 ## Avaliação
 
-69 perguntas com a resposta esperada (`avaliacao/casos.json`), em 8 grupos. Cada caso diz o que **precisa** acontecer (fonte do FAQ, ferramenta chamada,
+75 perguntas com a resposta esperada (`avaliacao/casos.json`), em 8 grupos. Cada caso diz o que **precisa** acontecer (fonte do FAQ, ferramenta chamada,
 argumentos certos, texto que deve ou não aparecer); não compara frase com frase, porque o modelo pode redigir de formas diferentes.
 
 ```bash
@@ -95,6 +95,17 @@ Ajustei a instrução do roteador (`INSTRUCOES_AGENTE`, regra 4) para "o que sig
 O que a primeira rodada achou e foi corrigido: "e para aprovar?" depois de "como criar um orçamento" respondia sobre **criar** (o verbo antigo
 competia com o novo) e "oi" / "obrigado" respondiam "não encontrei".
 
+### Avaliação automática e ciclo com perguntas reais
+
+- **A cada commit (CI):** `python -m avaliacao --local --sem-modelo --minimo 1.0` roda os casos que não dependem do Gemini (46) e reprova se algum quebrar.
+- **Toda segunda (GitHub Actions, `avaliacao-semanal.yml`):** roda todos os casos contra a API publicada, com o Gemini, e reprova abaixo de 90%. O relatório vai para o resumo da execução e para um artefato. Também dá para disparar à mão.
+- **Perguntas reais viram testes** (`avaliacao/candidatos.py`): exporte os logs (tela de Conversas / `GET /chat-logs` / `perguntas_sem_resposta.jsonl`), gere `candidatos.json` com `python -m avaliacao.candidatos logs.json`, revise (preencha `espera` e `aprovado`) e incorpore com `--aprovar candidatos.json`. O script só separa e sugere; quem decide a resposta certa é uma pessoa.
+
+### Busca semântica (embeddings)
+
+O TF-IDF compara palavras; "adicionar uma pessoa" não casa com "cadastrar um usuário". Por isso, quando a nota do TF-IDF fica abaixo de `0.45`, a pergunta vira um vetor (`gemini-embedding-001`) e é comparada, por cosseno, com os vetores do FAQ (calculados 1 vez na partida, em segundo plano).
+O resultado semântico só vale se passar de `0.78` **e** vencer o 2º lugar por `0.03`, para perguntas fora do assunto continuarem sem resposta. Sem chave, sem cota ou com erro de rede, segue só o TF-IDF. A resposta traz `"busca": "lexical" | "semantica"` e o `/health` mostra `semantica`.
+
 ## Variáveis de ambiente
 
 | Variável | Padrão | Para que serve |
@@ -107,6 +118,9 @@ competia com o novo) e "oi" / "obrigado" respondiam "não encontrei".
 | `IA_CACHE_TTL` | `86400` | Segundos que uma resposta fica no cache; `0` desliga |
 | `IA_CACHE_MAX` | `500` | Máximo de itens no cache |
 | `IA_LIMITE_POR_MINUTO` | `30` | Perguntas por minuto por visitante (429 depois disso) |
+| `IA_SEMANTICA` | `1` | `0` desliga a busca semântica |
+| `IA_LIMITE_SEMANTICO` / `IA_MARGEM_SEMANTICA` | `0.78` / `0.03` | Nota mínima e vantagem sobre o 2º lugar para aceitar a busca semântica |
+| `IA_SEMANTICA_SE_LEXICAL_ABAIXO` | `0.45` | Só consulta o embedding se o TF-IDF ficar abaixo disso |
 | `IA_LIMITE_CONFIANCA` | `0.30` | Abaixo disso a pergunta vira "não encontrei" e é registrada |
 
 Perguntas sem resposta vão para `data/perguntas_sem_resposta.jsonl`: é a lista do que falta incluir no FAQ.

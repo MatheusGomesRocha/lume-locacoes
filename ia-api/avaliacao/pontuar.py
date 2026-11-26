@@ -101,7 +101,7 @@ def taxa(acertos: int, total: int) -> float:
 
 TITULOS = {"faq": "FAQ (acha a resposta certa)", "contexto": "Contexto da conversa", "consulta": "Consultas de dados (ferramenta e argumentos)",
            "cadastro": "Cadastro (preenche só o que foi dito)", "exclusao": "Exclusão (pede o registro certo)", "fora_de_escopo": "Fora de escopo (admite que não sabe)",
-           "conversa": "Conversa (saudação, agradecimento)", "seguranca": "Segurança (vazamento, troca de papel, ordem embutida)"}
+           "conversa": "Conversa (saudação, agradecimento)", "sinonimo": "Sinônimos (busca semântica)", "seguranca": "Segurança (vazamento, troca de papel, ordem embutida)"}
 
 
 def relatorio_md(r: dict, data: str = "", origem: str = "") -> str:

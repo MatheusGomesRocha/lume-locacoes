@@ -4,7 +4,7 @@
   python -m avaliacao --local                                    # coleta + pontua em processo (precisa de GEMINI_API_KEY)
   python -m avaliacao --pontuar avaliacao/respostas.json         # só pontua respostas já coletadas (sem rede)
 
-Opções: --grupo faq, --minimo 0.85 (sai com erro se a taxa geral ficar abaixo), --md relatorio.md, --salvar respostas.json
+Opções: --grupo faq, --sem-modelo, --minimo 0.85 (sai com erro se a taxa geral ficar abaixo), --md relatorio.md, --salvar respostas.json
 """
 import argparse
 import json
@@ -24,13 +24,14 @@ def main(argv=None) -> int:
     origem.add_argument("--pontuar", metavar="ARQUIVO")
     p.add_argument("--token")
     p.add_argument("--grupo")
+    p.add_argument("--sem-modelo", action="store_true", help="pula os casos que dependem do Gemini (para o CI)")
     p.add_argument("--pausa", type=float, default=2.2)
     p.add_argument("--minimo", type=float)
     p.add_argument("--md")
     p.add_argument("--salvar")
     a = p.parse_args(argv)
 
-    casos = carregar_casos(a.grupo)
+    casos = carregar_casos(a.grupo, a.sem_modelo)
     if a.pontuar:
         coletado, onde = json.loads(Path(a.pontuar).read_text(encoding="utf-8")), a.pontuar
     else:

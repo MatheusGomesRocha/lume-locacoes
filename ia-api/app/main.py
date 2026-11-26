@@ -17,7 +17,8 @@ from typing import Annotated, Any
 from app import ferramentas
 from app.conversa import resposta_de_conversa
 from app.cache import cache_do_ambiente, chave_da_conversa, versao_do_conteudo
-from app.busca import BaseConhecimento, Contexto, pede_dados_do_sistema
+from app.busca import BaseConhecimento, Contexto, Resultado, pede_dados_do_sistema
+from app.semantica import NOTA_LEXICAL_CONFIANTE, criar_indice_do_ambiente, vencedor_confiavel
 from app.limite import LimitadorDeRequisicoes
 from app.llm import AJUDA, INSTRUCOES, INSTRUCOES_AGENTE, LimitadorDiario, criar_provedor_do_ambiente, decidir_acao, gerar_resposta, limite_diario_do_ambiente, redigir_com_dados
 
@@ -51,6 +52,10 @@ _trava_log = threading.Lock()
 # LLM opcional (GEMINI_API_KEY). Sem a chave, tudo continua funcionando só com o FAQ.
 provedor_llm = criar_provedor_do_ambiente()
 limitador_llm = LimitadorDiario(limite_diario_do_ambiente())
+# Busca semântica (embeddings), só quando o TF-IDF não tem certeza. Sem chave, fica desligada.
+indice_semantico = criar_indice_do_ambiente(base.itens, permitir=limitador_llm.permitir)
+if indice_semantico is not None:
+    indice_semantico.construir_em_segundo_plano()
 # Cache das respostas do modelo (ver app/cache.py). IA_CACHE_TTL=0 desliga.
 cache = cache_do_ambiente()
 # Muda quando o FAQ, as instruções ou as ferramentas mudam: respostas antigas deixam de valer.
@@ -99,6 +104,14 @@ def registrar_sem_resposta(pergunta: str, melhor_score: float, tipo: str = "faq"
         f.write(json.dumps(linha, ensure_ascii=False) + "\n")
 
 
+def _refinar_com_semantica(pergunta: str, resultados: list[Resultado]) -> list[Resultado] | None:
+    """Se o significado aponta com clareza para um item, devolve os resultados reordenados por ele; senão None."""
+    notas = indice_semantico.buscar(pergunta, limite=4)
+    if not vencedor_confiavel(notas):
+        return None
+    return [Resultado(i["id"], i["modulo"], i["pergunta"], i["resposta"], round(c, 4)) for i, c in notas]
+
+
 def _relacionadas(resultados, inicio: int, fim: int) -> list[dict]:
     return [{"id": r.id, "pergunta": r.pergunta} for r in resultados[inicio:fim]]
 
@@ -111,7 +124,8 @@ def raiz():
 @app.get("/health")
 def health():
     return {"status": "ok", "perguntas_na_base": len(base.itens), "llm": provedor_llm is not None,
-            "llm_chamadas_hoje": limitador_llm.usadas, "cache": cache.estatisticas()}
+            "llm_chamadas_hoje": limitador_llm.usadas, "cache": cache.estatisticas(),
+            "semantica": "desligada" if indice_semantico is None else "pronta" if indice_semantico.pronto else "indisponivel" if indice_semantico.erro else "construindo"}
 
 
 @app.get("/faq", dependencies=[Depends(exigir_token)])
@@ -175,6 +189,14 @@ def chat(dados: PerguntaIn):
 
     resultados, usou_contexto = base.buscar_com_contexto(pergunta, contexto, limite=4)
     melhor = resultados[0] if resultados else None
+    assunto = base.assunto_da_conversa(pergunta, contexto)
+
+    busca = "lexical"
+    # Busca híbrida: o TF-IDF não tem certeza e a pergunta não depende da conversa -> pergunta ao embedding.
+    if indice_semantico is not None and not assunto and not pede_dados_do_sistema(pergunta) and (not melhor or melhor.score < NOTA_LEXICAL_CONFIANTE):
+        refinados = _refinar_com_semantica(pergunta, resultados)
+        if refinados:
+            resultados, melhor, busca = refinados, refinados[0], "semantica"
 
     if pede_dados_do_sistema(pergunta):
         # Registrado como tipo "dados": mostra quais consultas valem virar ferramenta.
@@ -192,7 +214,6 @@ def chat(dados: PerguntaIn):
     # A conversa é sobre um assunto (ex.: produtos) e a pergunta, lida sozinha, não casa com nada desse assunto
     # (ex.: "e para cancelar?"): a resposta só pareceria certa pelos termos emprestados da pergunta anterior.
     # Melhor admitir que a ajuda não cobre isso do que responder sobre a coisa errada.
-    assunto = base.assunto_da_conversa(pergunta, contexto)
     if assunto and melhor:
         solta = base.buscar(pergunta, limite=len(base.itens))
         if not any(r.modulo == assunto and r.score >= LIMITE_CONFIANCA for r in solta):
@@ -229,6 +250,7 @@ def chat(dados: PerguntaIn):
             "confianca": melhor.score,
             "relacionadas": _relacionadas(resultados, 1, 4),
             "usou_contexto": usou_contexto,
+            "busca": busca,
         }
 
     registrar_sem_resposta(pergunta, melhor.score if melhor else 0.0)
