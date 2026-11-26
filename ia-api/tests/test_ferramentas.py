@@ -230,3 +230,10 @@ def test_redigir_com_dados_sem_dados_provedor_ou_teto_devolve_none():
     assert redigir_com_dados(None, LimitadorDiario(10), "x", [], r) is None
     assert redigir_com_dados(Falso(), LimitadorDiario(0), "x", [], r) is None
     assert redigir_com_dados(Falso(erro=ErroLLM("x")), LimitadorDiario(10), "x", [], r) is None
+
+
+def test_orcamentos_filtra_por_devolucao_e_cobrancas_por_vencimento():
+    r = f.validar_chamada("consultar_orcamentos", {"devolucao_de": "2026-11-26", "devolucao_ate": "26/11/2026"})
+    assert r["args"] == {"devolucao_de": "2026-11-26"}
+    r = f.validar_chamada("consultar_cobrancas", {"vencimento_de": "2026-11-26", "vencimento_ate": "2026-12-03"})
+    assert r["args"] == {"situacao": "todos", "vencimento_de": "2026-11-26", "vencimento_ate": "2026-12-03"}
