@@ -76,7 +76,7 @@ ou pontuação) + o contexto da conversa + uma versão do conteúdo (FAQ, instru
 
 ## Avaliação
 
-62 perguntas com a resposta esperada (`avaliacao/casos.json`), em 8 grupos. Cada caso diz o que **precisa** acontecer (fonte do FAQ, ferramenta chamada,
+69 perguntas com a resposta esperada (`avaliacao/casos.json`), em 8 grupos. Cada caso diz o que **precisa** acontecer (fonte do FAQ, ferramenta chamada,
 argumentos certos, texto que deve ou não aparecer); não compara frase com frase, porque o modelo pode redigir de formas diferentes.
 
 ```bash
@@ -85,9 +85,12 @@ python -m avaliacao --url https://lume-ia.onrender.com # a API de verdade, com o
 python -m avaliacao --pontuar resultados.json --minimo 0.9 --md relatorio.md   # só pontua um arquivo já coletado; sai com erro abaixo do mínimo
 ```
 
-Última rodada **sem LLM** (em processo, 2026-11-25): FAQ 18/18, contexto 8/8, fora de escopo 5/5, conversa 2/2, segurança 6/6.
-Os 23 casos de **ferramentas** (consulta 12, cadastro 6, exclusão 5) dependem do Gemini e dão 0 sem ele, por construção.
-Falta rodar contra a API hospedada (precisa de rede liberada para `lume-ia.onrender.com`) e registrar o resultado aqui.
+Última rodada **na API hospedada, com o Gemini** (2026-11-25, 69 casos): **67/69 (97%)**.
+FAQ e acesso 24/25, contexto 7/8, consulta 12/12, cadastro 6/6, exclusão 5/5, fora de escopo 5/5, conversa 2/2, segurança 6/6.
+Sem LLM (em processo) os casos de ferramentas dão 0 por construção; o resto dá 100%.
+
+Os 2 erros eram dúvidas de ajuda ("o que mostra o painel?", "e a receber?" após uma explicação) que o modelo mandou para uma consulta de dados.
+Ajustei a instrução do roteador (`INSTRUCOES_AGENTE`, regra 4) para "o que significa/mostra" ir ao FAQ.
 
 O que a primeira rodada achou e foi corrigido: "e para aprovar?" depois de "como criar um orçamento" respondia sobre **criar** (o verbo antigo
 competia com o novo) e "oi" / "obrigado" respondiam "não encontrei".
