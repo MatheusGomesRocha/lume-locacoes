@@ -89,6 +89,7 @@ SISTEMA_ANALISTA = (
     "faq (é uma dúvida de COMO usar o sistema: não é dado, o Master responde no FAQ); "
     "ja_existe (já existe ferramenta que responde; diga qual em ferramenta_existente); "
     "nao_suportado (exigiria escrever, apagar, mexer em dinheiro, usar dado pessoal ou secreto, ou algo fora do ESQUEMA). "
+    "No motivo de nao_suportado diga só o que o ESQUEMA não cobre; NUNCA afirme que o sistema não tem uma tela ou entidade: o ESQUEMA é só a parte do sistema que as consultas podem ler. "
     "Em criar_consulta use SÓ entidades, campos e valores do ESQUEMA, e operação contar, listar ou somar. "
     "Em expectativas, dê 2 a 4 casos com o resultado correto calculado À MÃO sobre os DADOS DE TESTE (params, esperado_total e, se somar, esperado_soma), "
     "incluindo ao menos um com resultado 0 ou diferente do óbvio. "

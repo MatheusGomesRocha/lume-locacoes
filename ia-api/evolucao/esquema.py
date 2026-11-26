@@ -42,6 +42,10 @@ ESQUEMA: dict[str, dict] = {
         "ativo": _c("bool", "Ativo"),
         "email": _c("texto", "E-mail", nivel="pessoal"), "senha": _c("texto", "Senha", nivel="secreto"),
     }},
+    "grupos": {"rotulo": "Grupos de permissão", "permissao": "usuarios.ver", "so_admin": True, "campos": {
+        "nome": _c("texto", "Nome do grupo"), "descricao": _c("texto", "Descrição"), "sistema": _c("bool", "Grupo do sistema"),
+        "usuarios_count": _c("numero", "Usuários no grupo"), "permissoes_count": _c("numero", "Quantidade de permissões"),
+    }},
 }
 
 # Mesmas chaves "modulo.acao" do front (versao-real/frontend/src/lib/permissoes.ts).
@@ -58,6 +62,7 @@ REGRAS_DE_MODULO = {
         "ORC-PERIODO: filtro de período usa data_retirada ou data_devolucao, e 'de' nunca pode ser depois de 'até'.",
     ],
     "usuarios": ["USR-ADMIN: só master e administrador consultam usuários; e-mail e senha nunca saem."],
+    "grupos": ["USR-ADMIN: só master e administrador consultam grupos de permissão."],
     "pagamentos": ["FIN-PERM: cobranças só com a permissão do Financeiro (financeiro.ver)."],
     "clientes": ["CLI-PESSOAL: documento, e-mail e telefone são dados pessoais e não saem em consulta gerada."],
     "produtos": [],
@@ -65,6 +70,11 @@ REGRAS_DE_MODULO = {
 
 # Dados pequenos e fixos para os testes (as armadilhas são de propósito: nomes parecidos, inativos, datas).
 DADOS_TESTE: dict[str, list[dict]] = {
+    "grupos": [
+        {"nome": "Master", "descricao": "Acesso total", "sistema": True, "usuarios_count": 1, "permissoes_count": 30},
+        {"nome": "Administração", "descricao": None, "sistema": True, "usuarios_count": 1, "permissoes_count": 20},
+        {"nome": "Vendas", "descricao": "Time comercial", "sistema": False, "usuarios_count": 2, "permissoes_count": 8},
+    ],
     "usuarios": [
         {"nome": "Matheus Gomes", "papel": "master", "grupo_nome": "Master", "ativo": True, "email": "m@x.com", "senha": "hash1"},
         {"nome": "Ana Lima", "papel": "admin", "grupo_nome": "Administração", "ativo": True, "email": "a@x.com", "senha": "hash2"},
