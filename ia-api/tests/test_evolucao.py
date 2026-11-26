@@ -347,3 +347,11 @@ def test_caso_do_tester_modelo_que_falha_vira_aviso_mas_o_do_analista_bloqueia()
     assert any(a["codigo"] == "T02" for a in av["achados"]) and av["resumo"]["falharam"] == 1 and av["veredito"] == "revisar_com_atencao"
     errada = {**PROPOSTA, "expectativas": [{"descricao": "conta errada", "params": {"papel": "master"}, "esperado_total": 99}]}
     assert Tester(None).avaliar(errada, pacote())["veredito"] == "reprovar_recomendado"
+
+
+def test_expectativa_do_analista_com_valor_impossivel_vira_recusa_e_nao_reprova():
+    prop = {**PROPOSTA, "expectativas": [{"descricao": "Contar inexistente", "params": {"perfil": "inexistente"}, "esperado_total": 0}]}
+    casos = agentes.casos_da_proposta(prop, pacote()["spec"])
+    assert casos[0]["esperado"] == {"erro": "parametro"} and "fora da lista" in casos[0]["descricao"]
+    av = Tester(None).avaliar(prop, pacote())
+    assert av["resumo"]["falharam"] == 0 and av["veredito"] != "reprovar_recomendado"

@@ -273,9 +273,27 @@ def casos_base(spec: dict) -> list[dict]:
     return casos
 
 
-def casos_da_proposta(proposta: dict) -> list[dict]:
-    return [_caso("proposta", "execucao", e.get("descricao") or "expectativa do Analista", {k[len("esperado_"):]: v for k, v in e.items() if k.startswith("esperado_")}, params=e.get("params", {}))
-            for e in proposta.get("expectativas", [])]
+def _valor_impossivel(spec: dict | None, params: dict) -> bool:
+    """O caso usa, num parâmetro de lista, um valor que não está na lista? Aí a única resposta certa da consulta é recusar."""
+    defs = (spec or {}).get("parametros") or {}
+    return any(d.get("tipo") == "enum" and n in params and params[n] not in d.get("valores", []) for n, d in defs.items())
+
+
+def casos_da_proposta(proposta: dict, spec: dict | None = None) -> list[dict]:
+    casos = []
+    for e in proposta.get("expectativas", []):
+        esperado = {k[len("esperado_"):]: v for k, v in e.items() if k.startswith("esperado_")}
+        descricao = e.get("descricao") or "expectativa do Analista"
+        params = e.get("params", {})
+        if spec and _valor_impossivel(spec, params):
+            # O Analista esperou um total para um valor que a consulta nunca aceita (ex.: perfil inexistente). Recusar é o certo,
+            # e o relatório mostra a troca em vez de reprovar uma consulta correta por conta de uma expectativa impossível.
+            esperado, descricao = {"erro": "parametro"}, f"{descricao} (valor fora da lista: a consulta deve recusar, em vez de contar)"
+        elif spec and spec.get("operacao") != "somar":
+            esperado.pop("soma", None)
+        if esperado:
+            casos.append(_caso("proposta", "execucao", descricao, esperado, params=params))
+    return casos
 
 
 def validar_casos_llm(brutos, operacao: str | None = None) -> list[dict]:
@@ -340,7 +358,7 @@ class Tester:
         if checagens.tem_bloqueio(achados) and (spec.get("entidade") not in ESQUEMA or spec.get("operacao") not in OPERACOES):
             return self._sem_execucao(achados, "a consulta nem tem entidade ou operação válidas: não há o que executar")
 
-        casos = casos_base(spec) + casos_da_proposta(proposta)
+        casos = casos_base(spec) + casos_da_proposta(proposta, spec)
         if self.provedor is not None:
             try:
                 brutos = chamar_json(self.provedor, self.limitador, SISTEMA_TESTER, json.dumps(
