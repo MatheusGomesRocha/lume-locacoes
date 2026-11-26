@@ -104,12 +104,15 @@ def registrar_sem_resposta(pergunta: str, melhor_score: float, tipo: str = "faq"
         f.write(json.dumps(linha, ensure_ascii=False) + "\n")
 
 
-def _refinar_com_semantica(pergunta: str, resultados: list[Resultado]) -> list[Resultado] | None:
-    """Se o significado aponta com clareza para um item, devolve os resultados reordenados por ele; senão None."""
+def _refinar_com_semantica(pergunta: str) -> tuple[list[Resultado] | None, dict | None]:
+    """(resultados reordenados pelo significado ou None se ele não aponta com clareza, diagnóstico para o /chat)."""
     notas = indice_semantico.buscar(pergunta, limite=4)
+    if not notas:
+        return None, None
+    diagnostico = {"id": notas[0][0]["id"], "nota": round(notas[0][1], 4), "margem": round(notas[0][1] - notas[1][1], 4) if len(notas) > 1 else None}
     if not vencedor_confiavel(notas):
-        return None
-    return [Resultado(i["id"], i["modulo"], i["pergunta"], i["resposta"], round(c, 4)) for i, c in notas]
+        return None, diagnostico
+    return [Resultado(i["id"], i["modulo"], i["pergunta"], i["resposta"], round(c, 4)) for i, c in notas], diagnostico
 
 
 def _relacionadas(resultados, inicio: int, fim: int) -> list[dict]:
@@ -191,10 +194,10 @@ def chat(dados: PerguntaIn):
     melhor = resultados[0] if resultados else None
     assunto = base.assunto_da_conversa(pergunta, contexto)
 
-    busca = "lexical"
+    busca, diagnostico_semantico = "lexical", None
     # Busca híbrida: o TF-IDF não tem certeza e a pergunta não depende da conversa -> pergunta ao embedding.
     if indice_semantico is not None and not assunto and not pede_dados_do_sistema(pergunta) and (not melhor or melhor.score < NOTA_LEXICAL_CONFIANTE):
-        refinados = _refinar_com_semantica(pergunta, resultados)
+        refinados, diagnostico_semantico = _refinar_com_semantica(pergunta)
         if refinados:
             resultados, melhor, busca = refinados, refinados[0], "semantica"
 
@@ -251,10 +254,12 @@ def chat(dados: PerguntaIn):
             "relacionadas": _relacionadas(resultados, 1, 4),
             "usou_contexto": usou_contexto,
             "busca": busca,
+            "semantica": diagnostico_semantico,
         }
 
     registrar_sem_resposta(pergunta, melhor.score if melhor else 0.0)
     return {
+        "semantica": diagnostico_semantico,
         "encontrou": False,
         "resposta": "Não encontrei isso nas perguntas frequentes. Sua pergunta foi registrada para a equipe incluir na base de ajuda.",
         "fonte": None,
