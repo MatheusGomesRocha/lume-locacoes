@@ -243,7 +243,7 @@ def test_llm_recebe_o_historico_da_conversa(com_llm):
     p = com_llm(ProvedorFalso())
     perguntar_com_contexto("mas eu quero excluir", ["como excluir produto"], "prod-excluir")
     assert "como excluir produto" in p.chamadas[0]
-    assert "Por que não consigo excluir um produto?" in p.chamadas[0]
+    assert "Como excluir um produto?" in p.chamadas[0]
 
 
 def test_llm_com_erro_cai_no_faq(com_llm):

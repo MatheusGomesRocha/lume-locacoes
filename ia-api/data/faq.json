@@ -331,15 +331,17 @@
   {
     "id": "prod-excluir",
     "modulo": "Produtos",
-    "pergunta": "Por que não consigo excluir um produto?",
+    "pergunta": "Como excluir um produto?",
     "palavras_chave": [
       "excluir produto",
       "apagar produto",
       "remover produto",
+      "lixeira",
       "bloqueado",
+      "não consigo excluir",
       "problema"
     ],
-    "resposta": "Um produto que já foi usado em algum orçamento não pode ser excluído, para não quebrar o histórico. Nesse caso, desmarque Ativo."
+    "resposta": "Em Produtos, clique no ícone de lixeira na linha do produto e confirme. Um produto que já foi usado em algum orçamento não pode ser excluído, para não quebrar o histórico: nesse caso, edite o produto e desmarque Ativo, e ele deixa de aparecer nos novos orçamentos."
   },
   {
     "id": "prod-estoque",
@@ -386,14 +388,17 @@
   {
     "id": "cli-excluir",
     "modulo": "Clientes",
-    "pergunta": "Por que não consigo excluir um cliente?",
+    "pergunta": "Como excluir um cliente?",
     "palavras_chave": [
       "excluir cliente",
       "apagar cliente",
       "remover cliente",
+      "lixeira",
+      "bloqueado",
+      "não consigo excluir",
       "problema"
     ],
-    "resposta": "Clientes que já têm orçamentos não podem ser excluídos, para manter o histórico e o financeiro. Só clientes sem nenhum orçamento podem ser removidos."
+    "resposta": "Em Clientes, clique no ícone de lixeira na linha do cliente e confirme. Um cliente que já tem orçamentos não pode ser excluído, para não perder o histórico. Nesse caso, mantenha o cadastro."
   },
   {
     "id": "cli-busca",
@@ -460,5 +465,149 @@
       "recomeçar"
     ],
     "resposta": "Na versão de demonstração, use Restaurar dados de exemplo no rodapé do menu lateral. Isso apaga o que você cadastrou e recarrega o conjunto inicial de clientes, produtos e orçamentos."
+  },
+  {
+    "id": "acesso-login",
+    "modulo": "Acesso",
+    "pergunta": "Como entro no sistema?",
+    "palavras_chave": [
+      "login",
+      "entrar",
+      "acessar",
+      "sair",
+      "logout",
+      "senha",
+      "esqueci a senha"
+    ],
+    "resposta": "Informe e-mail e senha na tela de entrada. Para sair, use Sair no rodapé do menu lateral. Não há \"esqueci a senha\": peça a um administrador (ou ao master) para definir uma nova senha em Usuários. Na versão de demonstração, os botões da tela de entrada preenchem contas de teste (senha lume1234)."
+  },
+  {
+    "id": "acesso-niveis",
+    "modulo": "Acesso",
+    "pergunta": "Quais são os níveis de usuário?",
+    "palavras_chave": [
+      "master",
+      "administrador",
+      "admin",
+      "nível",
+      "niveis",
+      "papel",
+      "usuário comum",
+      "diferença entre master e administrador",
+      "o que é o master",
+      "quem é master",
+      "quem é admin"
+    ],
+    "resposta": "Há três níveis. O master tem todas as permissões, não pode ser alterado por ninguém além dele mesmo e é o único que cria grupos e promove administradores. O administrador cadastra e edita usuários comuns, escolhendo o grupo deles, mas não mexe no master nem em outros administradores. O usuário comum só usa os módulos que o grupo dele libera."
+  },
+  {
+    "id": "acesso-grupo-criar",
+    "modulo": "Acesso",
+    "pergunta": "Como criar um grupo de permissões?",
+    "palavras_chave": [
+      "grupo",
+      "grupos",
+      "permissões",
+      "permissao",
+      "criar grupo",
+      "novo grupo",
+      "módulos"
+    ],
+    "resposta": "Só o master faz isso. Abra Grupos no menu, clique em Novo grupo, dê um nome e marque, módulo por módulo, o que o grupo pode fazer (ver, criar, editar, excluir e ações específicas como aprovar ou dar baixa). Marcar tudo liga todas as ações de um módulo. Depois clique em Salvar grupo."
+  },
+  {
+    "id": "acesso-grupo-editar",
+    "modulo": "Acesso",
+    "pergunta": "Como editar ou excluir um grupo de permissões?",
+    "palavras_chave": [
+      "editar grupo",
+      "excluir grupo",
+      "apagar grupo",
+      "alterar permissões",
+      "grupo master"
+    ],
+    "resposta": "Em Grupos, use o lápis para editar ou a lixeira para excluir (só o master). Mudar as permissões vale na hora para todos do grupo, sem precisar sair e entrar de novo. Um grupo que ainda tem usuários não pode ser excluído: mude o grupo deles antes. O grupo Master tem todas as permissões e não pode ser alterado nem excluído."
+  },
+  {
+    "id": "acesso-usuario-criar",
+    "modulo": "Acesso",
+    "pergunta": "Como cadastrar um usuário?",
+    "palavras_chave": [
+      "usuário",
+      "usuarios",
+      "novo usuário",
+      "cadastrar usuário",
+      "criar usuário",
+      "convidar",
+      "grupo obrigatório"
+    ],
+    "resposta": "O master e os administradores fazem isso em Usuários, com Novo usuário. Preencha nome, e-mail e uma senha de pelo menos 8 caracteres, e escolha o grupo de permissões: todo usuário precisa de um grupo para acessar o sistema. Só o master escolhe o nível (usuário ou administrador); quando um administrador cadastra, a pessoa entra como usuário comum."
+  },
+  {
+    "id": "acesso-usuario-desativar",
+    "modulo": "Acesso",
+    "pergunta": "Como bloquear a entrada de um usuário ou trocar o grupo dele?",
+    "palavras_chave": [
+      "desativar usuário",
+      "bloquear usuário",
+      "trocar grupo",
+      "mudar grupo",
+      "editar usuário",
+      "excluir usuário",
+      "redefinir senha"
+    ],
+    "resposta": "Em Usuários, clique no lápis da pessoa: dá para mudar o grupo, redefinir a senha ou desmarcar Pode entrar no sistema, que bloqueia o acesso sem apagar nada. Desativar ou trocar a senha encerra as sessões abertas dela. Excluir (lixeira) remove a conta de vez. Ninguém exclui a si mesmo, e o master não pode ser excluído."
+  },
+  {
+    "id": "acesso-sem-permissao",
+    "modulo": "Acesso",
+    "pergunta": "Por que não vejo uma tela ou um botão?",
+    "palavras_chave": [
+      "sem permissão",
+      "não aparece",
+      "não vejo",
+      "acesso negado",
+      "bloqueado",
+      "menu",
+      "permissão",
+      "não aparece o menu",
+      "menu não aparece",
+      "sumiu o menu",
+      "falta o menu",
+      "não vejo o menu",
+      "meu menu",
+      "aparece pra mim"
+    ],
+    "resposta": "O menu e os botões mostram só o que o seu grupo permite. Se falta algo, peça ao master para incluir a permissão no seu grupo em Grupos (ou para trocar você de grupo). Vale para o assistente também: ele só faz o que você mesmo poderia fazer nas telas."
+  },
+  {
+    "id": "acesso-minha-conta",
+    "modulo": "Acesso",
+    "pergunta": "Como troco minha senha ou meus dados?",
+    "palavras_chave": [
+      "minha conta",
+      "trocar senha",
+      "mudar senha",
+      "alterar senha",
+      "alterar e-mail",
+      "meus dados"
+    ],
+    "resposta": "Clique em Minha conta no rodapé do menu lateral. Dá para mudar nome e e-mail; para trocar a senha, informe a atual e a nova (mínimo de 8 caracteres). Trocar a senha encerra as suas outras sessões abertas. Nível e grupo só quem tem permissão em Usuários altera."
+  },
+  {
+    "id": "assist-conversas",
+    "modulo": "Assistente",
+    "pergunta": "Onde vejo as perguntas feitas ao assistente?",
+    "palavras_chave": [
+      "conversas",
+      "histórico",
+      "log",
+      "registro",
+      "avaliação",
+      "joinha",
+      "útil",
+      "observabilidade"
+    ],
+    "resposta": "Em Conversas, no menu (precisa da permissão de ver conversas). A tela lista cada pergunta com o tipo, o tempo de resposta, se veio do cache ou do modelo e a avaliação. A avaliação é o joinha (útil ou ruim) que a pessoa clica embaixo da resposta no chat. Perguntas marcadas como sem resposta mostram o que falta na ajuda."
   }
 ]

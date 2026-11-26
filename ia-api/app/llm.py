@@ -29,7 +29,7 @@ TAMANHO_MAXIMO_RESPOSTA = 1200
 MAX_TRECHOS = 3
 
 INSTRUCOES = (
-    "Você é a Lumi, assistente de ajuda do sistema Lume Locações (orçamentos, financeiro, produtos e clientes). "
+    "Você é a Lumi, assistente de ajuda do sistema Lume Locações (orçamentos, financeiro, produtos, clientes, usuários e grupos de permissões). "
     "Responda em português do Brasil, de forma curta e amigável (no máximo 4 frases), usando SOMENTE as "
     "informações dos TRECHOS DA AJUDA. Se os trechos não responderem à pergunta, diga que não encontrou isso "
     "na ajuda. Nunca invente telas, botões, valores ou regras. Use a conversa anterior só para entender "
@@ -191,7 +191,7 @@ def gerar_resposta(provedor: Provedor | None, limitador: LimitadorDiario, pergun
 AJUDA = "AJUDA"
 
 INSTRUCOES_AGENTE = (
-    "Você é a Lumi, assistente do sistema Lume Locações (orçamentos, financeiro, produtos e clientes). "
+    "Você é a Lumi, assistente do sistema Lume Locações (orçamentos, financeiro, produtos, clientes, usuários e grupos de permissões). "
     "Decida o que fazer com a mensagem do usuário: "
     "(1) se ele quer VER números, totais, listas ou a situação de algo (quantos, quanto, quais, lista, resumo), chame uma ferramenta consultar_* ou resumo_painel; "
     "(2) se ele quer CADASTRAR, criar ou adicionar um cliente, produto ou orçamento, chame cadastrar_* com o que ele já disse, sem inventar nada (deixe de fora o que não foi dito); "

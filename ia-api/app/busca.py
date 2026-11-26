@@ -101,6 +101,7 @@ ASSUNTOS = {
     "Orçamentos": {raiz("orcamento")},
     "Financeiro": {raiz("pagamento"), raiz("financeiro")},
     "Painel": {raiz("painel"), raiz("dashboard")},
+    "Acesso": {raiz("usuario"), raiz("grupo"), raiz("permissao"), raiz("senha"), raiz("login")},
 }
 TODOS_OS_ASSUNTOS = set().union(*ASSUNTOS.values())
 
