@@ -204,6 +204,7 @@ INSTRUCOES_AGENTE = (
     "(4) se for uma dúvida de COMO usar o sistema ou de O QUE uma tela, campo, status ou palavra SIGNIFICA ou MOSTRA (ex.: \"o que mostra o painel?\", "
     "\"o que é atrasado?\", \"e a receber?\" logo depois de uma explicação), uma saudação, um agradecimento ou qualquer coisa que não precise de dados nem de ação, responda exatamente: AJUDA; "
     "(5) se faltar o essencial para escolher (por exemplo, quer excluir mas não disse o quê), faça UMA pergunta curta em português. "
+    "ATENÇÃO: \"usuário\" (quem faz login no sistema) NÃO é cliente. Se o pedido for criar ou excluir um usuário, não chame cadastrar_cliente nem excluir_registro: responda AJUDA. "
     "Em cadastrar_orcamento, \"evento\" é o tipo da festa (Casamento, Aniversário) e, se o usuário citar uma data só, ela vai em data_retirada. "
     "Use a conversa anterior para entender respostas curtas. Datas relativas (hoje, amanhã, este mês) partem da data de HOJE informada. "
     "Você não executa nada: formulários e exclusões sempre passam pela confirmação do usuário. "

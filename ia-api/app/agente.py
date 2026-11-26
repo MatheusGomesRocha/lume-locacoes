@@ -109,9 +109,25 @@ _SIM = {"sim", "s", "confirmo", "confirmar", "confirmado", "pode", "pode criar",
 _NAO = {"nao", "n", "cancelar", "cancela", "cancele", "desisti", "esquece", "deixa", "deixa pra la", "nenhum", "parar", "para"}
 
 
+_RESSALVA = re.compile(r"\b(mas|porem|so|apenas|exceto|menos|antes|espera\w*|pera|muda\w*|troc\w+|alter\w+|corrig\w+|nao|tira\w*|desconto|talvez|depende)\b")
+
+
 def _afirmativo(msg: str) -> bool:
+    """"sim" puro (ou com um enfeite curto: "sim, pode"). "Sim, mas muda o nome" NÃO é confirmação: o que foi confirmado é o resumo mostrado."""
     t = _n(msg).strip(" .!")
-    return t in _SIM or t.startswith("sim ") or t.startswith("sim,")
+    if t in _SIM:
+        return True
+    return bool(re.match(r"sim\b", t)) and len(t.split()) <= 4 and not _RESSALVA.search(t)
+
+
+_PULAR = re.compile(r"\b(pul\w+|nenhum\w*|nada|depois|agora nao|tanto faz|dispens\w+|ignor\w+|deixa\w*|sem (?:isso|nada|dados|telefone|email|cidade)|nao (?:tem|quero|precisa|sei|vou)|so isso)\b")
+_FILLER = re.compile(r"\b(pode|quero|nao|nada|pular|pula|ok|beleza|sim|ta|tudo|isso|mesmo|informar|faltou|depois|agora|ignor\w+|regras?|grav\w+|confirm\w+|sem|cadastr\w+|cliente|usuario|por favor|obrigad\w+)\b")
+
+
+def _quer_pular(msg: str) -> bool:
+    t = _n(msg)
+    traz_dado = "@" in t or "cidade" in t or bool(re.search(r"\d{8,}", re.sub(r"\D", "", t)))
+    return bool(_PULAR.search(t)) and not traz_dado
 
 
 def _negativo(msg: str) -> bool:
@@ -521,7 +537,7 @@ def continuar(estado, mensagem: str, resultados, hoje: str | None) -> dict | Non
         return _avancar(e, hoje)
 
     if passo == "contatos_cliente":
-        if not _negativo(msg) and _n(msg) not in ("pular", "pula", "nao", "nenhum"):
+        if not _negativo(msg) and not _quer_pular(msg):
             _ler_contatos(r["cliente_novo"], msg)
         r["contato_perguntado"] = True
         return _avancar(e, hoje)
@@ -599,7 +615,7 @@ def _ler_contatos(novo: dict, msg: str) -> None:
     else:
         sobra = re.sub(r"(?i)\b(telefone|tel|fone|celular|whatsapp|e-?mail|cpf|cnpj|é|e|de|em|mora|moro|:)\b", " ", resto)
         sobra = re.sub(r"[,;:]", " ", sobra).strip()
-        if sobra and len(sobra) <= 40 and not re.search(r"\d", sobra):
+        if sobra and len(sobra) <= 40 and len(sobra.split()) <= 4 and not re.search(r"\d", sobra) and not _FILLER.search(_n(sobra)):
             novo["cidade"] = sobra[:80]
 
 

@@ -209,6 +209,8 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
         if consultas:  # consultar e agir no mesmo pedido não é suportado: a consulta vem primeiro
             return _resposta_agente("", consultas=consultas, em_cache=em_cache)
         acoes = decisao.chamadas[:1]  # uma ação por vez: cada uma tem a sua confirmação
+        if acoes[0]["nome"] in ("cadastrar_cliente", "excluir_registro") and ferramentas.fala_de_usuario_do_sistema(pergunta):
+            return _resposta_agente(TEXTO_USUARIO_DO_SISTEMA, em_cache=em_cache)
         # Com dados para trabalhar, o agente conduz a conversa no chat (sem formulário); sem dados, abre o formulário de sempre.
         if acoes[0]["nome"] in ("cadastrar_orcamento", "cadastrar_cliente"):
             passo = conversa_agente.iniciar(acoes[0]["nome"], acoes[0]["args"], dados.hoje)
@@ -218,6 +220,12 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
     if decisao.texto and decisao.texto.strip().strip(".!").upper() != AJUDA:
         return _resposta_agente(decisao.texto[:400])
     return None
+
+
+TEXTO_USUARIO_DO_SISTEMA = (
+    "Usuário do sistema (quem faz login) eu ainda não consigo criar nem excluir por aqui: isso é na tela de Usuários. "
+    "Por aqui eu cadastro clientes, produtos e orçamentos. Se você quis dizer cliente, peça assim: “cadastrar cliente Fulano”."
+)
 
 
 @app.post("/chat", dependencies=[Depends(exigir_token), Depends(limitar)])

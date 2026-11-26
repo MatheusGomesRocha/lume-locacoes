@@ -209,6 +209,16 @@ _DADOS = re.compile(r"\b(quanto|quantos|quantas|total|soma|lista\w*|liste|mostr\
 _COMO = re.compile(r"^\s*(como|onde|posso|pode|e\s+possivel|por\s*que|o\s+que\s+(e|significa)|qual\s+a\s+diferenca|quando)\b")
 
 
+_USUARIO = re.compile(r"\busuari[oa]s?\b")
+_ALVO_CERTO = re.compile(r"\b(clientes?|produtos?|orcamentos?)\b")
+
+
+def fala_de_usuario_do_sistema(pergunta: str) -> bool:
+    """"cadastre o usuário X": o agente não tem ferramenta de usuários e não pode adivinhar que era cliente."""
+    p = _sem_acento(pergunta)
+    return bool(_USUARIO.search(p)) and not _ALVO_CERTO.search(p)
+
+
 def parece_pedido_de_acao_ou_dados(pergunta: str, historico: list[str] | None = None) -> bool:
     """True se vale perguntar ao LLM se isto é uma consulta/ação. Dúvidas de 'como fazer' seguem para o FAQ."""
     p = _sem_acento(pergunta)
