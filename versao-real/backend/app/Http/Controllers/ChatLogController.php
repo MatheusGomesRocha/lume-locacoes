@@ -16,12 +16,13 @@ class ChatLogController extends Controller
 
     public function index(Request $request)
     {
-        return ChatLog::query()
+        $consulta = ChatLog::query()
             ->when($request->query('tipo'), fn ($q, $t) => $q->where('tipo', $t))
             ->when($request->query('feedback'), fn ($q, $f) => $q->where('feedback', $f))
-            ->orderByDesc('id')
-            ->limit(self::LIMITE)
-            ->get();
+            ->orderByDesc('id');
+
+        // sem paginar, mantém o teto de sempre; paginado, o próprio cliente limita o que lê por vez
+        return $request->query('por_pagina') ? $this->listaPaginada($request, $consulta) : $consulta->limit(self::LIMITE)->get();
     }
 
     public function store(Request $request): JsonResponse

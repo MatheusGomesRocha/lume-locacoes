@@ -23,14 +23,15 @@ class ClienteController extends Controller
     {
         $busca = trim((string) $request->query('q', ''));
 
-        return Cliente::query()
+        $consulta = Cliente::query()
             ->when($busca !== '', fn ($q) => $q->where(fn ($w) => $w
                 ->where('nome', 'like', "%$busca%")
                 ->orWhere('documento', 'like', "%$busca%")
                 ->orWhere('email', 'like', "%$busca%")
                 ->orWhere('cidade', 'like', "%$busca%")))
-            ->orderBy('nome')
-            ->get();
+            ->orderBy('nome');
+
+        return $this->listaPaginada($request, $consulta);
     }
 
     public function store(Request $request): JsonResponse

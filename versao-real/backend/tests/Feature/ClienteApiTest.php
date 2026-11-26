@@ -20,6 +20,19 @@ class ClienteApiTest extends TestCase
         $this->getJson('/api/clientes')->assertOk()->assertJsonPath('0.nome', 'Ana')->assertJsonPath('1.nome', 'Zélia');
     }
 
+    public function test_lista_paginada_traz_o_total_e_so_a_pagina_pedida(): void
+    {
+        foreach (range(1, 12) as $i) {
+            $this->cliente(['nome' => sprintf('Cliente %02d', $i)]);
+        }
+
+        $this->getJson('/api/clientes?por_pagina=10&pagina=1')->assertOk()
+            ->assertJsonCount(10, 'dados')->assertJsonPath('total', 12)->assertJsonPath('ultima_pagina', 2)->assertJsonPath('dados.0.nome', 'Cliente 01');
+        $this->getJson('/api/clientes?por_pagina=10&pagina=2')->assertJsonCount(2, 'dados')->assertJsonPath('dados.0.nome', 'Cliente 11');
+        $this->getJson('/api/clientes?por_pagina=5000')->assertJsonPath('por_pagina', 100); // o servidor limita
+        $this->getJson('/api/clientes')->assertJsonCount(12); // sem por_pagina, a lista inteira de sempre
+    }
+
     public function test_busca_por_nome_documento_email_e_cidade(): void
     {
         $this->cliente(['nome' => 'Buffet Sabor', 'documento' => '12.345', 'cidade' => 'Aquiraz']);

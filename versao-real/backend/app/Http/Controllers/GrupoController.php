@@ -30,9 +30,9 @@ class GrupoController extends Controller
         ];
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        return Grupo::withCount('usuarios')->orderBy('id')->get()->map(fn ($g) => $this->paraApi($g));
+        return $this->listaPaginada($request, Grupo::withCount('usuarios')->orderBy('id'), fn ($g) => $this->paraApi($g));
     }
 
     public function store(Request $request): JsonResponse

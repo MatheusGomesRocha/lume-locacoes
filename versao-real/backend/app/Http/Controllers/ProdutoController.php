@@ -28,12 +28,13 @@ class ProdutoController extends Controller
     {
         $busca = trim((string) $request->query('q', ''));
 
-        return Produto::query()
+        $consulta = Produto::query()
             ->when($busca !== '', fn ($q) => $q->where(fn ($w) => $w->where('nome', 'like', "%$busca%")->orWhere('codigo', 'like', "%$busca%")))
             ->when($request->filled('categoria'), fn ($q) => $q->where('categoria', $request->query('categoria')))
             ->when($request->filled('ativo'), fn ($q) => $q->where('ativo', filter_var($request->query('ativo'), FILTER_VALIDATE_BOOLEAN)))
-            ->orderBy('codigo')
-            ->get();
+            ->orderBy('codigo');
+
+        return $this->listaPaginada($request, $consulta);
     }
 
     public function store(Request $request): JsonResponse

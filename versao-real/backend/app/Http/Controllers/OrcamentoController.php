@@ -33,14 +33,15 @@ class OrcamentoController extends Controller
     {
         $busca = trim((string) $request->query('q', ''));
 
-        return Orcamento::with(['cliente', 'itens.produto', 'pagamentos'])
+        $consulta = Orcamento::with(['cliente', 'itens.produto', 'pagamentos'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->query('status')))
             ->when($busca !== '', fn ($q) => $q->where(fn ($w) => $w
                 ->where('numero', 'like', "%$busca%")
                 ->orWhere('evento', 'like', "%$busca%")
                 ->orWhereHas('cliente', fn ($c) => $c->where('nome', 'like', "%$busca%"))))
-            ->orderByDesc('id')
-            ->get();
+            ->orderByDesc('id');
+
+        return $this->listaPaginada($request, $consulta);
     }
 
     public function store(Request $request): JsonResponse

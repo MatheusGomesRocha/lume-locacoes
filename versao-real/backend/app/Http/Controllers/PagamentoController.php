@@ -18,13 +18,14 @@ class PagamentoController extends Controller
     {
         $hoje = now()->toDateString();
 
-        return Pagamento::with('orcamento.cliente')
+        $consulta = Pagamento::with('orcamento.cliente')
             ->when($request->query('status') === 'pendente', fn ($q) => $q->where('status', Pagamento::PENDENTE)->where('vencimento', '>=', $hoje))
             ->when($request->query('status') === 'atrasado', fn ($q) => $q->where('status', Pagamento::PENDENTE)->where('vencimento', '<', $hoje))
             ->when(in_array($request->query('status'), [Pagamento::PAGO, Pagamento::CANCELADO], true), fn ($q) => $q->where('status', $request->query('status')))
             ->orderByDesc('vencimento')
-            ->orderByDesc('id')
-            ->get();
+            ->orderByDesc('id');
+
+        return $this->listaPaginada($request, $consulta);
     }
 
     public function baixar(Request $request, Pagamento $pagamento): Pagamento

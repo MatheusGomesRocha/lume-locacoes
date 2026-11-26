@@ -52,9 +52,9 @@ class UsuarioController extends Controller
         }
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        return Usuario::with('grupo')->orderBy('nome')->get()->map->paraApi();
+        return $this->listaPaginada($request, Usuario::with('grupo')->orderBy('nome'), fn ($u) => $u->paraApi());
     }
 
     public function store(Request $request): JsonResponse
