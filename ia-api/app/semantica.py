@@ -29,8 +29,8 @@ DIMENSOES = 256  # vetores curtos bastam para ~50 frases e deixam a comparação
 
 # Abaixo da nota do TF-IDF indicada aqui, vale a pena perguntar ao embedding.
 NOTA_LEXICAL_CONFIANTE = float(os.getenv("IA_SEMANTICA_SE_LEXICAL_ABAIXO", "0.45"))
-LIMITE_SEMANTICO = float(os.getenv("IA_LIMITE_SEMANTICO", "0.78"))
-MARGEM_SEMANTICA = float(os.getenv("IA_MARGEM_SEMANTICA", "0.03"))
+LIMITE_SEMANTICO = float(os.getenv("IA_LIMITE_SEMANTICO", "0.74"))
+MARGEM_SEMANTICA = float(os.getenv("IA_MARGEM_SEMANTICA", "0.02"))
 MAX_CONSULTAS_EM_MEMORIA = 500
 
 

@@ -104,7 +104,7 @@ competia com o novo) e "oi" / "obrigado" respondiam "não encontrei".
 ### Busca semântica (embeddings)
 
 O TF-IDF compara palavras; "adicionar uma pessoa" não casa com "cadastrar um usuário". Por isso, quando a nota do TF-IDF fica abaixo de `0.45`, a pergunta vira um vetor (`gemini-embedding-001`) e é comparada, por cosseno, com os vetores do FAQ (calculados 1 vez na partida, em segundo plano).
-O resultado semântico só vale se passar de `0.78` **e** vencer o 2º lugar por `0.03`, para perguntas fora do assunto continuarem sem resposta. Sem chave, sem cota ou com erro de rede, segue só o TF-IDF. A resposta traz `"busca": "lexical" | "semantica"` e o `/health` mostra `semantica`.
+O resultado semântico só vale se passar de `0.74` **e** vencer o 2º lugar por `0.02` (calibrado em 20 perguntas reais: os acertos ficaram em 0.74–0.80 com margem ≥0.02; perguntas fora do assunto, em até 0.71 com margem ≤0.016), para perguntas fora do assunto continuarem sem resposta. Sem chave, sem cota ou com erro de rede, segue só o TF-IDF. A resposta traz `"busca": "lexical" | "semantica"` e o `/health` mostra `semantica`.
 
 ## Variáveis de ambiente
 
@@ -119,7 +119,7 @@ O resultado semântico só vale se passar de `0.78` **e** vencer o 2º lugar por
 | `IA_CACHE_MAX` | `500` | Máximo de itens no cache |
 | `IA_LIMITE_POR_MINUTO` | `30` | Perguntas por minuto por visitante (429 depois disso) |
 | `IA_SEMANTICA` | `1` | `0` desliga a busca semântica |
-| `IA_LIMITE_SEMANTICO` / `IA_MARGEM_SEMANTICA` | `0.78` / `0.03` | Nota mínima e vantagem sobre o 2º lugar para aceitar a busca semântica |
+| `IA_LIMITE_SEMANTICO` / `IA_MARGEM_SEMANTICA` | `0.74` / `0.02` | Nota mínima e vantagem sobre o 2º lugar para aceitar a busca semântica |
 | `IA_SEMANTICA_SE_LEXICAL_ABAIXO` | `0.45` | Só consulta o embedding se o TF-IDF ficar abaixo disso |
 | `IA_LIMITE_CONFIANCA` | `0.30` | Abaixo disso a pergunta vira "não encontrei" e é registrada |
 
