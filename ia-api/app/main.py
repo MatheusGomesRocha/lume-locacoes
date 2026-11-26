@@ -16,6 +16,7 @@ from typing import Annotated
 
 from app.busca import BaseConhecimento, Contexto, pede_dados_do_sistema
 from app.limite import LimitadorDeRequisicoes
+from app.llm import LimitadorDiario, criar_provedor_do_ambiente, gerar_resposta, limite_diario_do_ambiente
 
 PASTA_DADOS = Path(__file__).resolve().parent.parent / "data"
 
@@ -43,6 +44,12 @@ app.add_middleware(
 base = BaseConhecimento(PASTA_DADOS / "faq.json")
 limitador = LimitadorDeRequisicoes(maximo=int(os.getenv("IA_LIMITE_POR_MINUTO", "30")))
 _trava_log = threading.Lock()
+
+# LLM opcional (GEMINI_API_KEY). Sem a chave, tudo continua funcionando só com o FAQ.
+provedor_llm = criar_provedor_do_ambiente()
+limitador_llm = LimitadorDiario(limite_diario_do_ambiente())
+# Trechos abaixo desta nota não entram no prompt do LLM.
+NOTA_MINIMA_DO_TRECHO = 0.15
 
 
 class PerguntaIn(BaseModel):
@@ -92,7 +99,7 @@ def raiz():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "perguntas_na_base": len(base.itens)}
+    return {"status": "ok", "perguntas_na_base": len(base.itens), "llm": provedor_llm is not None}
 
 
 @app.get("/faq", dependencies=[Depends(exigir_token)])
@@ -118,12 +125,16 @@ def chat(dados: PerguntaIn):
             "confianca": 0.0,
             "relacionadas": _relacionadas(resultados, 0, 3),
             "usou_contexto": False,
+            "gerada_por_llm": False,
         }
 
     if melhor and melhor.score >= LIMITE_CONFIANCA:
+        trechos = [(r.pergunta, r.resposta) for r in resultados if r.score >= NOTA_MINIMA_DO_TRECHO]
+        redigida = gerar_resposta(provedor_llm, limitador_llm, pergunta, contexto.perguntas_anteriores, trechos)
         return {
             "encontrou": True,
-            "resposta": melhor.resposta,
+            "resposta": redigida or melhor.resposta,
+            "gerada_por_llm": redigida is not None,
             "fonte": {"id": melhor.id, "modulo": melhor.modulo, "pergunta": melhor.pergunta},
             "confianca": melhor.score,
             "relacionadas": _relacionadas(resultados, 1, 4),
@@ -138,4 +149,5 @@ def chat(dados: PerguntaIn):
         "confianca": melhor.score if melhor else 0.0,
         "relacionadas": _relacionadas(resultados, 0, 3),
         "usou_contexto": False,
+        "gerada_por_llm": False,
     }

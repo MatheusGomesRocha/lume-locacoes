@@ -16,3 +16,10 @@ services:
       # Ex.: https://SEU-USUARIO.github.io  (só a origem, sem o nome do repositório)
       - key: IA_ORIGENS_PERMITIDAS
         sync: false
+      # LLM opcional (plano gratuito do Google AI Studio). Sem a chave, a API responde só com o FAQ.
+      # Crie a chave em https://aistudio.google.com/apikey e cole no painel do Render, nunca no código.
+      - key: GEMINI_API_KEY
+        sync: false
+      # Teto de chamadas ao LLM por dia, para a cota gratuita não acabar.
+      - key: IA_LLM_LIMITE_DIARIO
+        value: "200"

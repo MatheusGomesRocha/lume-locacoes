@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import main
+from app.llm import ErroLLM, LimitadorDiario
 from app.main import app, identificar_visitante, origens_permitidas, registrar_sem_resposta
 
 client = TestClient(app)
@@ -191,3 +192,73 @@ def test_chat_ignora_historico_em_branco():
 def test_resposta_de_dados_e_de_nao_encontrado_trazem_usou_contexto_falso():
     assert perguntar("quantos orçamentos eu tenho?")["usou_contexto"] is False
     assert perguntar("receita de bolo de chocolate")["usou_contexto"] is False
+
+
+# ---------- LLM (sempre com provedor falso) ----------
+class ProvedorFalso:
+    def __init__(self, texto="Resposta redigida pelo modelo.", erro=None):
+        self.texto, self.erro, self.chamadas = texto, erro, []
+
+    def gerar(self, sistema, usuario):
+        self.chamadas.append(usuario)
+        if self.erro:
+            raise self.erro
+        return self.texto
+
+
+@pytest.fixture
+def com_llm(monkeypatch):
+    def ligar(provedor, limite=100):
+        monkeypatch.setattr(main, "provedor_llm", provedor)
+        monkeypatch.setattr(main, "limitador_llm", LimitadorDiario(limite))
+        return provedor
+    return ligar
+
+
+def test_sem_llm_a_resposta_vem_do_faq(monkeypatch):
+    monkeypatch.setattr(main, "provedor_llm", None)
+    r = perguntar("Como criar um orçamento?")
+    assert r["gerada_por_llm"] is False and r["fonte"]["id"] == "orc-criar"
+    assert client.get("/health").json()["llm"] is False
+
+
+def test_com_llm_a_resposta_e_redigida_pelo_modelo(com_llm):
+    p = com_llm(ProvedorFalso())
+    r = perguntar("Como criar um orçamento?")
+    assert r["resposta"] == "Resposta redigida pelo modelo." and r["gerada_por_llm"] is True
+    assert r["fonte"]["id"] == "orc-criar"
+    assert "Como criar um orçamento?" in p.chamadas[0]
+    assert client.get("/health").json()["llm"] is True
+
+
+def test_llm_recebe_o_historico_da_conversa(com_llm):
+    p = com_llm(ProvedorFalso())
+    perguntar_com_contexto("mas eu quero excluir", ["como excluir produto"], "prod-excluir")
+    assert "como excluir produto" in p.chamadas[0]
+    assert "Por que não consigo excluir um produto?" in p.chamadas[0]
+
+
+def test_llm_com_erro_cai_no_faq(com_llm):
+    com_llm(ProvedorFalso(erro=ErroLLM("fora do ar")))
+    r = perguntar("Como criar um orçamento?")
+    assert r["gerada_por_llm"] is False and r["encontrou"] is True and "orçamento" in r["resposta"].lower()
+    assert r["resposta"] != "Resposta redigida pelo modelo."
+
+
+def test_teto_diario_do_llm_cai_no_faq(com_llm):
+    p = com_llm(ProvedorFalso(), limite=1)
+    assert perguntar("Como criar um orçamento?")["gerada_por_llm"] is True
+    assert perguntar("Como criar um orçamento?")["gerada_por_llm"] is False
+    assert len(p.chamadas) == 1
+
+
+def test_llm_nao_e_chamado_quando_o_faq_nao_acha_nada(com_llm):
+    p = com_llm(ProvedorFalso())
+    r = perguntar("receita de bolo de chocolate")
+    assert r["encontrou"] is False and r["gerada_por_llm"] is False and p.chamadas == []
+
+
+def test_llm_nao_e_chamado_para_pedido_de_dados(com_llm):
+    p = com_llm(ProvedorFalso())
+    r = perguntar("quantos orçamentos eu tenho?")
+    assert r["gerada_por_llm"] is False and p.chamadas == []

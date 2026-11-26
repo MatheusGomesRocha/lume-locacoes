@@ -35,12 +35,30 @@ Quando a pergunta está incompleta (poucos termos e sem assunto, ou sem ação),
 anterior com peso menor e dá um pequeno bônus às respostas do mesmo módulo. Perguntas completas nunca são alteradas.
 `usou_contexto` é `true` quando isso mudou a melhor resposta.
 
+## LLM (opcional)
+
+Com `GEMINI_API_KEY` definida, o fluxo do `/chat` vira um RAG completo:
+
+1. a busca (TF-IDF + contexto da conversa) escolhe até 3 trechos do FAQ;
+2. o Gemini redige a resposta usando **só** esses trechos (instruções em `app/llm.py`);
+3. a resposta traz `"gerada_por_llm": true`; a fonte continua sendo a melhor entrada do FAQ.
+
+O LLM **nunca é chamado** quando o FAQ não acha nada ou quando o pedido é de dados do sistema, e a API cai na resposta
+pronta do FAQ se: não houver chave, o teto diário (`IA_LLM_LIMITE_DIARIO`) acabar, ou o provedor falhar. O chat nunca fica mudo.
+
+A chave fica só no servidor. Crie uma em https://aistudio.google.com/apikey (plano gratuito; os limites mudam,
+veja o AI Studio). Os termos do plano gratuito permitem que o Google use o conteúdo enviado, então não coloque dados
+sensíveis no FAQ.
+
 ## Variáveis de ambiente
 
 | Variável | Padrão | Para que serve |
 |----------|--------|----------------|
 | `IA_ORIGENS_PERMITIDAS` | `http://localhost:5173,http://127.0.0.1:5173` | Sites que podem chamar a API pelo navegador (CORS), separados por vírgula |
 | `IA_API_TOKEN` | vazio | Se definido, exige o header `X-API-Token`. **Não use com o GitHub Pages**: o token ficaria visível no navegador |
+| `GEMINI_API_KEY` | _(vazio: LLM desligado)_ | Chave do Google AI Studio |
+| `IA_LLM_MODELO` | `gemini-flash-lite-latest` | Modelo do Gemini; troque se o Google renomear |
+| `IA_LLM_LIMITE_DIARIO` | `200` | Chamadas ao LLM por dia; `0` desliga |
 | `IA_LIMITE_POR_MINUTO` | `30` | Perguntas por minuto por visitante (429 depois disso) |
 | `IA_LIMITE_CONFIANCA` | `0.30` | Abaixo disso a pergunta vira "não encontrei" e é registrada |
 
