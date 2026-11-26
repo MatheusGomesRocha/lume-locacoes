@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FaqItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -65,6 +66,12 @@ class ChatController extends Controller
         }
         if (! empty($dados['resultados'])) {
             $corpo['resultados'] = array_values($dados['resultados']);
+        }
+
+        // Respostas que o master escreveu: a ia-api não guarda nada, então elas vão junto de cada pergunta.
+        $extras = FaqItem::query()->orderBy('id')->limit(FaqController::LIMITE)->get(['id', 'modulo', 'pergunta', 'resposta', 'palavras_chave']);
+        if ($extras->isNotEmpty()) {
+            $corpo['faq_extra'] = $extras->map(fn ($i) => ['id' => $i->id, 'modulo' => $i->modulo, 'pergunta' => $i->pergunta, 'resposta' => $i->resposta, 'palavras_chave' => $i->palavras_chave ?? []])->all();
         }
 
         try {

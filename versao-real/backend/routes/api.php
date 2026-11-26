@@ -5,6 +5,7 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ChatLogController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FaqController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\OrcamentoController;
 use App\Http\Controllers\PagamentoController;
@@ -57,6 +58,14 @@ Route::middleware('autenticado')->group(function () {
     Route::patch('chat-logs/{chatLog}', [ChatLogController::class, 'update'])->middleware('pode:assistente.usar');
     Route::get('chat-logs', [ChatLogController::class, 'index'])->middleware('pode:assistente.conversas');
     Route::delete('chat-logs', [ChatLogController::class, 'destroy'])->middleware('pode:assistente.conversas');
+
+    // Responder às perguntas sem resposta (base de ajuda): só o master, nunca por grupo.
+    Route::middleware('master')->group(function () {
+        Route::get('faq-itens', [FaqController::class, 'index']);
+        Route::post('faq-itens', [FaqController::class, 'store']);
+        Route::put('faq-itens/{faqItem}', [FaqController::class, 'update']);
+        Route::delete('faq-itens/{faqItem}', [FaqController::class, 'destroy']);
+    });
 
     // Usuários: só administradores e master, e ainda com a permissão do grupo.
     Route::middleware('admin')->group(function () {

@@ -52,6 +52,6 @@ Essas regras existem também em `versao-real/frontend/src/lib/regras.ts` (usadas
 
 Públicos: `GET health`, `POST login`. Logado: `POST logout` · `GET|PUT eu` (minha conta) · `GET dashboard` · `clientes`, `produtos`, `orcamentos` (CRUD) ·
 `POST orcamentos/{id}/(enviar|aprovar|finalizar|cancelar)` · `GET pagamentos?status=(pendente|atrasado|pago|cancelado)` · `POST pagamentos/{id}/baixar` ·
-`GET chat/sugestoes` · `POST chat` · `chat-logs` (registro das conversas) · `usuarios` (CRUD, admin/master) · `grupos` (listar: admin/master; criar, editar, excluir: master).
+`GET chat/sugestoes` · `POST chat` · `chat-logs` (registro das conversas) · `faq-itens` (respostas do master às perguntas sem resposta; só o master, e o `chat` as anexa a cada pergunta) · `usuarios` (CRUD, admin/master) · `grupos` (listar: admin/master; criar, editar, excluir: master).
 
 Erros de regra voltam como `{"message": "...", "detalhes": [...]}` (401, 403, 409 ou 422); validação como o padrão do Laravel (`errors`).

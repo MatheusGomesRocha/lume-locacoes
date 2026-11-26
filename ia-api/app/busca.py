@@ -127,9 +127,11 @@ class Resultado:
 
 
 class BaseConhecimento:
-    def __init__(self, caminho_faq: Path):
-        with open(caminho_faq, encoding="utf-8") as f:
-            self.itens = json.load(f)
+    def __init__(self, caminho_faq: Path | None = None, itens: list[dict] | None = None):
+        if itens is None:
+            with open(caminho_faq, encoding="utf-8") as f:
+                itens = json.load(f)
+        self.itens = itens
 
         # 1) conta os termos de cada item, com pesos diferentes por campo
         contagens = []
@@ -152,6 +154,10 @@ class BaseConhecimento:
         # 3) vetor TF-IDF de cada item e sua norma (para o cosseno)
         self.vetores = [{t: q * self.idf[t] for t, q in c.items()} for c in contagens]
         self.normas = [math.sqrt(sum(v * v for v in vet.values())) or 1.0 for vet in self.vetores]
+
+    def com_extras(self, extras: list[dict]) -> "BaseConhecimento":
+        """Base nova com os itens extras (respostas que o master escreveu) somados ao FAQ do arquivo."""
+        return BaseConhecimento(itens=[*self.itens, *extras])
 
     def _pontuar(self, consulta: dict[str, float], limite: int, assunto: str | None = None) -> list[Resultado]:
         """Cosseno entre a consulta (termo -> peso) e cada item. `assunto` dá um bônus ao módulo da conversa."""

@@ -130,7 +130,7 @@ class AuthApiTest extends TestCase
     {
         $this->criarMaster('m@lume.test');
 
-        $this->login('m@lume.test')->assertOk()->assertJsonPath('permissoes', Acesso::todas());
+        $this->login('m@lume.test')->assertOk()->assertJsonPath('permissoes', [...Acesso::todas(), Acesso::SO_MASTER]);
     }
 
     public function test_altera_os_proprios_dados_e_troca_a_senha_com_a_senha_atual(): void

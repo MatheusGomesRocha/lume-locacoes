@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ChatLog;
+use App\Models\FaqItem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -49,6 +50,11 @@ class PermissaoRotasTest extends TestCase
             'chat-logs avaliar' => ['patchJson', '/api/chat-logs/{chatLog}', ['assistente.usar']],
             'chat-logs listar' => ['getJson', '/api/chat-logs', ['assistente.conversas']],
             'chat-logs apagar' => ['deleteJson', '/api/chat-logs', ['assistente.conversas']],
+            // Só o master (nenhum grupo libera): ver FaqApiTest.
+            'faq listar' => ['getJson', '/api/faq-itens', []],
+            'faq criar' => ['postJson', '/api/faq-itens', []],
+            'faq editar' => ['putJson', '/api/faq-itens/{faqItem}', []],
+            'faq excluir' => ['deleteJson', '/api/faq-itens/{faqItem}', []],
         ];
     }
 
@@ -66,6 +72,7 @@ class PermissaoRotasTest extends TestCase
             '{produto}' => $this->produto()->id,
             '{orcamento}' => $o->id,
             '{pagamento}' => $this->pagamento($o)->id,
+            '{faqItem}' => FaqItem::create(['modulo' => 'Acesso', 'pergunta' => 'Pergunta de teste', 'resposta' => 'Resposta de teste', 'palavras_chave' => []])->id,
             '{chatLog}' => ChatLog::create(['pergunta' => 'p', 'resposta' => 'r', 'tipo' => 'ajuda'])->id,
         ];
 

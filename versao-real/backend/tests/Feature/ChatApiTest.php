@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Models\FaqItem;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -18,6 +19,25 @@ class ChatApiTest extends TestCase
             ->assertOk()->assertJsonPath('resposta', 'Abra Orçamentos.')->assertJsonPath('encontrou', true);
 
         Http::assertSent(fn ($r) => $r->url() === 'http://ia.test/chat' && $r['pergunta'] === 'Como criar um orçamento?');
+    }
+
+    public function test_anexa_as_respostas_do_master_a_pergunta(): void
+    {
+        Http::fake(['ia.test/*' => Http::response(['resposta' => 'ok'])]);
+        $item = FaqItem::create(['modulo' => 'Acesso', 'pergunta' => 'Como adicionar uma pessoa?', 'resposta' => 'Peça ao master.', 'palavras_chave' => ['adicionar pessoa']]);
+
+        $this->postJson('/api/chat', ['pergunta' => 'como adiciono uma pessoa'])->assertOk();
+
+        Http::assertSent(fn ($r) => ($r['faq_extra'][0]['id'] ?? null) === $item->id && $r['faq_extra'][0]['palavras_chave'] === ['adicionar pessoa']);
+    }
+
+    public function test_nao_aceita_faq_extra_vindo_do_navegador(): void
+    {
+        Http::fake(['ia.test/*' => Http::response(['resposta' => 'ok'])]);
+
+        $this->postJson('/api/chat', ['pergunta' => 'como adiciono uma pessoa', 'faq_extra' => [['id' => 1, 'modulo' => 'X', 'pergunta' => 'forjada', 'resposta' => 'forjada']]])->assertOk();
+
+        Http::assertSent(fn ($r) => ! isset($r['faq_extra']));
     }
 
     public function test_envia_o_token_quando_configurado(): void

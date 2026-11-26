@@ -3,6 +3,7 @@
 Rodar:  uvicorn app.main:app --port 8001 --reload
 Docs interativas (grátis no FastAPI): http://127.0.0.1:8001/docs
 """
+import hashlib
 import json
 import os
 import threading
@@ -62,6 +63,32 @@ cache = cache_do_ambiente()
 VERSAO_DO_CONTEUDO = versao_do_conteudo((PASTA_DADOS / "faq.json").read_text(encoding="utf-8"), INSTRUCOES, INSTRUCOES_AGENTE, json.dumps(ferramentas.declaracoes(), sort_keys=True))
 # Trechos abaixo desta nota não entram no prompt do LLM.
 NOTA_MINIMA_DO_TRECHO = 0.15
+MAX_FAQ_EXTRA = 100
+_bases_com_extras: dict[str, BaseConhecimento] = {}
+_trava_bases = threading.Lock()
+
+
+def base_para(extras: "list[ItemExtra]") -> tuple[BaseConhecimento, str]:
+    """(base de busca, versão dos extras). Sem extras é a base do arquivo; com extras, uma base montada e guardada por conteúdo."""
+    if not extras:
+        return base, ""
+    itens = [{"id": f"faq-extra-{e.id}", "modulo": e.modulo, "pergunta": e.pergunta, "resposta": e.resposta, "palavras_chave": e.palavras_chave} for e in extras]
+    versao = hashlib.sha256(json.dumps(itens, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
+    with _trava_bases:
+        if versao not in _bases_com_extras:
+            if len(_bases_com_extras) >= 8:
+                _bases_com_extras.pop(next(iter(_bases_com_extras)))
+            _bases_com_extras[versao] = base.com_extras(itens)
+        return _bases_com_extras[versao], versao
+
+
+class ItemExtra(BaseModel):
+    """Resposta escrita pelo master na tela de Conversas. Vale só enquanto vier junto da pergunta (a API não guarda nada)."""
+    id: int = Field(ge=1)
+    modulo: str = Field(min_length=1, max_length=40)
+    pergunta: str = Field(min_length=3, max_length=200)
+    resposta: str = Field(min_length=3, max_length=1500)
+    palavras_chave: list[Annotated[str, Field(max_length=200)]] = Field(default_factory=list, max_length=20)
 
 
 class PerguntaIn(BaseModel):
@@ -74,6 +101,8 @@ class PerguntaIn(BaseModel):
     hoje: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     # Segunda volta: o que as consultas pedidas na primeira volta devolveram (o front as executa).
     resultados: list[dict[str, Any]] | None = Field(default=None, max_length=3)
+    # FAQ extra (o que o master respondeu a partir das perguntas sem resposta). O Laravel/o front manda a lista a cada pergunta.
+    faq_extra: list[ItemExtra] = Field(default_factory=list, max_length=MAX_FAQ_EXTRA)
 
 
 def exigir_token(x_api_token: str | None = Header(default=None)):
@@ -182,6 +211,8 @@ def chat(dados: PerguntaIn):
     pergunta = dados.pergunta.strip()
     contexto = Contexto([p.strip() for p in dados.historico if p.strip()][-3:], dados.ultimo_id)
 
+    base_local, versao_extras = base_para(dados.faq_extra)
+
     papo = resposta_de_conversa(pergunta)
     if papo:
         return {"encontrou": True, "resposta": papo, "fonte": None, "confianca": 1.0, "relacionadas": [], "usou_contexto": False, "gerada_por_llm": False}
@@ -190,13 +221,13 @@ def chat(dados: PerguntaIn):
     if da_ferramenta is not None:
         return da_ferramenta
 
-    resultados, usou_contexto = base.buscar_com_contexto(pergunta, contexto, limite=4)
+    resultados, usou_contexto = base_local.buscar_com_contexto(pergunta, contexto, limite=4)
     melhor = resultados[0] if resultados else None
-    assunto = base.assunto_da_conversa(pergunta, contexto)
+    assunto = base_local.assunto_da_conversa(pergunta, contexto)
 
     busca, diagnostico_semantico = "lexical", None
     # Busca híbrida: o TF-IDF não tem certeza e a pergunta não depende da conversa -> pergunta ao embedding.
-    if indice_semantico is not None and not assunto and not pede_dados_do_sistema(pergunta) and (not melhor or melhor.score < NOTA_LEXICAL_CONFIANTE):
+    if indice_semantico is not None and not assunto and not pede_dados_do_sistema(pergunta) and (not melhor or melhor.score < NOTA_LEXICAL_CONFIANTE) and not (melhor and melhor.id.startswith("faq-extra-") and melhor.score >= LIMITE_CONFIANCA):
         refinados, diagnostico_semantico = _refinar_com_semantica(pergunta)
         if refinados:
             resultados, melhor, busca = refinados, refinados[0], "semantica"
@@ -218,7 +249,7 @@ def chat(dados: PerguntaIn):
     # (ex.: "e para cancelar?"): a resposta só pareceria certa pelos termos emprestados da pergunta anterior.
     # Melhor admitir que a ajuda não cobre isso do que responder sobre a coisa errada.
     if assunto and melhor:
-        solta = base.buscar(pergunta, limite=len(base.itens))
+        solta = base_local.buscar(pergunta, limite=len(base_local.itens))
         if not any(r.modulo == assunto and r.score >= LIMITE_CONFIANCA for r in solta):
             registrar_sem_resposta(pergunta, melhor.score, tipo="assunto")
             aviso = f"Não encontrei isso sobre {assunto.lower()} na ajuda."
@@ -238,11 +269,11 @@ def chat(dados: PerguntaIn):
         trechos = [(r.modulo, r.pergunta, r.resposta) for r in resultados if r.score >= NOTA_MINIMA_DO_TRECHO]
         if assunto:  # conversa com assunto definido: só trechos dele (o bloqueio acima garante que existe algum)
             trechos = [t for t in trechos if t[0] == assunto] or trechos
-        chave = chave_da_conversa("ajuda", VERSAO_DO_CONTEUDO, pergunta, contexto.perguntas_anteriores, contexto.ultimo_id)
+        chave = chave_da_conversa("ajuda", VERSAO_DO_CONTEUDO, pergunta, contexto.perguntas_anteriores, contexto.ultimo_id, versao_extras)
         redigida = cache.obter(chave)
         em_cache = redigida is not None
         if not em_cache:
-            redigida = gerar_resposta(provedor_llm, limitador_llm, pergunta, contexto.perguntas_anteriores, trechos, assunto or base.modulo_do_item(contexto.ultimo_id))
+            redigida = gerar_resposta(provedor_llm, limitador_llm, pergunta, contexto.perguntas_anteriores, trechos, assunto or base_local.modulo_do_item(contexto.ultimo_id))
             cache.guardar(chave, redigida)  # None (falha do modelo) não é guardado
         return {
             "em_cache": em_cache,

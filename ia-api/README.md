@@ -103,6 +103,10 @@ competia com o novo) e "oi" / "obrigado" respondiam "não encontrei".
 - **Toda segunda (GitHub Actions, `avaliacao-semanal.yml`):** roda todos os casos contra a API publicada, com o Gemini, e reprova abaixo de 90%. O relatório vai para o resumo da execução e para um artefato. Também dá para disparar à mão.
 - **Perguntas reais viram testes** (`avaliacao/candidatos.py`): exporte os logs (tela de Conversas / `GET /chat-logs` / `perguntas_sem_resposta.jsonl`), gere `candidatos.json` com `python -m avaliacao.candidatos logs.json`, revise (preencha `espera` e `aprovado`) e incorpore com `--aprovar candidatos.json`. O script só separa e sugere; quem decide a resposta certa é uma pessoa.
 
+### FAQ extra (respostas do master)
+
+O master responde às perguntas sem resposta pela tela de Conversas. As respostas ficam no banco do sistema (Laravel) ou no navegador (demo), nunca na ia-api, e vão no campo `faq_extra` (até 100 itens: `id`, `modulo`, `pergunta`, `resposta`, `palavras_chave`) de cada `POST /chat`. A API monta uma base com o FAQ do arquivo mais esses itens (guardada em memória por conteúdo) e a resposta em cache muda junto quando os extras mudam. Os itens extras entram só na busca por palavras (TF-IDF), por isso a pergunta original vai nas `palavras_chave`.
+
 ### Busca semântica (embeddings)
 
 O TF-IDF compara palavras; "adicionar uma pessoa" não casa com "cadastrar um usuário". Por isso, quando a nota do TF-IDF fica abaixo de `0.45`, a pergunta vira um vetor (`gemini-embedding-001`) e é comparada, por cosseno, com os vetores do FAQ (calculados 1 vez na partida, em segundo plano).

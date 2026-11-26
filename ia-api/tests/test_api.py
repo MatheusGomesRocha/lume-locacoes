@@ -407,3 +407,38 @@ def test_sem_llm_cadastro_e_consulta_seguem_o_comportamento_antigo(monkeypatch):
     monkeypatch.setattr(main, "provedor_llm", None)
     assert "acoes" not in perguntar("quero cadastrar um cliente")
     assert "Ainda não consigo consultar" in perguntar("quantos orçamentos eu tenho?")["resposta"]
+
+
+# ---------- FAQ extra (respostas escritas pelo master) ----------
+
+ITEM_EXTRA = {"id": 7, "modulo": "Acesso", "pergunta": "Como adicionar uma pessoa ao sistema?", "resposta": "Peça ao master para cadastrar você em Usuários.",
+              "palavras_chave": ["como adiciono uma pessoa no sistema", "adicionar pessoa"]}
+
+
+def test_faq_extra_responde_o_que_o_faq_do_arquivo_nao_cobre():
+    sem = client.post("/chat", json={"pergunta": "como adiciono uma pessoa no sistema"}).json()
+    assert sem["encontrou"] is False
+    com = client.post("/chat", json={"pergunta": "como adiciono uma pessoa no sistema", "faq_extra": [ITEM_EXTRA]}).json()
+    assert com["encontrou"] is True and com["fonte"]["id"] == "faq-extra-7"
+    assert "master" in com["resposta"]
+
+
+def test_faq_extra_nao_vaza_para_quem_nao_manda():
+    client.post("/chat", json={"pergunta": "como adiciono uma pessoa no sistema", "faq_extra": [ITEM_EXTRA]})
+    assert client.post("/chat", json={"pergunta": "como adiciono uma pessoa no sistema"}).json()["encontrou"] is False
+
+
+def test_faq_extra_invalido_e_recusado():
+    ruim = {**ITEM_EXTRA, "resposta": "x"}
+    assert client.post("/chat", json={"pergunta": "oi tudo bem", "faq_extra": [ruim]}).status_code == 422
+    muitos = [{**ITEM_EXTRA, "id": i} for i in range(1, 102)]
+    assert client.post("/chat", json={"pergunta": "oi tudo bem", "faq_extra": muitos}).status_code == 422
+
+
+def test_resposta_em_cache_muda_quando_o_faq_extra_muda():
+    a = {**ITEM_EXTRA, "resposta": "Primeira versão da resposta."}
+    b = {**ITEM_EXTRA, "resposta": "Segunda versão da resposta."}
+    pergunta = "como adicionar pessoa"
+    r1 = client.post("/chat", json={"pergunta": pergunta, "faq_extra": [a]}).json()
+    r2 = client.post("/chat", json={"pergunta": pergunta, "faq_extra": [b]}).json()
+    assert "Primeira" in r1["resposta"] and "Segunda" in r2["resposta"]

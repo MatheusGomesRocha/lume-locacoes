@@ -10,6 +10,9 @@ use App\Models\Usuario;
  */
 final class Acesso
 {
+    /** Permissão que só o master tem (responder perguntas sem resposta). Fica fora do catálogo: nenhum grupo a recebe. */
+    public const SO_MASTER = 'faq.responder';
+
     public const CRUD = ['ver', 'criar', 'editar', 'excluir'];
 
     public const MODULOS = [
@@ -50,7 +53,7 @@ final class Acesso
     public static function permissoesDe(Usuario $u): array
     {
         if ($u->papel === Usuario::MASTER) {
-            return self::todas();
+            return [...self::todas(), self::SO_MASTER];
         }
 
         return self::limpar($u->grupo?->permissoes ?? []);

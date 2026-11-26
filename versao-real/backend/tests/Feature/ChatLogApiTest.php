@@ -55,6 +55,14 @@ class ChatLogApiTest extends TestCase
         $this->getJson('/api/chat-logs?feedback=negativo')->assertJsonCount(1)->assertJsonPath('0.pergunta', 'segunda');
     }
 
+    public function test_aceita_o_desfecho_ignorado(): void
+    {
+        $log = ChatLog::create($this->dados(['tipo' => 'nao_encontrou']));
+
+        $this->patchJson("/api/chat-logs/{$log->id}", ['desfecho' => 'ignorado'])->assertOk()->assertJsonPath('desfecho', 'ignorado');
+        $this->patchJson("/api/chat-logs/{$log->id}", ['desfecho' => 'qualquer'])->assertUnprocessable();
+    }
+
     public function test_guarda_feedback_e_desfecho(): void
     {
         $log = ChatLog::create($this->dados());

@@ -46,7 +46,7 @@ class ChatLogController extends Controller
     {
         $dados = $request->validate([
             'feedback' => ['sometimes', 'nullable', Rule::in(['positivo', 'negativo'])],
-            'desfecho' => ['sometimes', 'nullable', Rule::in(['concluido', 'cancelado', 'recusado'])],
+            'desfecho' => ['sometimes', 'nullable', Rule::in(['concluido', 'cancelado', 'recusado', 'ignorado'])],
         ]);
         $chatLog->update($dados);
 
