@@ -278,12 +278,14 @@ def casos_da_proposta(proposta: dict) -> list[dict]:
             for e in proposta.get("expectativas", [])]
 
 
-def validar_casos_llm(brutos) -> list[dict]:
+def validar_casos_llm(brutos, operacao: str | None = None) -> list[dict]:
     casos = []
     for b in (brutos if isinstance(brutos, list) else [])[:20]:
         if not isinstance(b, dict) or b.get("tipo") not in TIPOS_DE_CASO or b.get("sessao", "master") not in SESSOES_TESTE or not isinstance(b.get("esperado"), dict):
             continue
         esperado = {k: v for k, v in b["esperado"].items() if k in ("total", "soma", "erro", "acha", "params") and (not isinstance(v, bool) or k == "acha")}
+        if operacao and operacao != "somar":
+            esperado.pop("soma", None)  # contar e listar não devolvem soma: esperar uma é erro do Tester, não da consulta
         if not esperado or not isinstance(b.get("params", {}), dict):
             continue
         casos.append(_caso("tester_llm", b["tipo"], _s(b.get("descricao"), 200) or "caso do Tester", esperado, b.get("sessao", "master"), b.get("params", {}), _s(b.get("pergunta"), 200) if b.get("pergunta") else None))
@@ -343,7 +345,7 @@ class Tester:
             try:
                 brutos = chamar_json(self.provedor, self.limitador, SISTEMA_TESTER, json.dumps(
                     {"ESQUEMA": resumo_do_esquema(), "DADOS_DE_TESTE": DADOS_TESTE, "SESSOES": SESSOES_TESTE, "PROPOSTA": proposta, "CONSULTA": spec}, ensure_ascii=False))
-                casos += validar_casos_llm(brutos.get("casos"))
+                casos += validar_casos_llm(brutos.get("casos"), spec.get("operacao"))
             except ErroAgente as e:
                 limites.append(f"o Tester não conseguiu escrever casos próprios ({e}); valeram só os casos do código e do Analista")
             try:
@@ -351,7 +353,9 @@ class Tester:
                     {"REGRAS_DOS_MODULOS": REGRAS_DE_MODULO, "PROPOSTA": proposta, "CONSULTA": spec}, ensure_ascii=False))
                 for a in (rev.get("achados") if isinstance(rev.get("achados"), list) else [])[:10]:
                     if isinstance(a, dict) and _s(a.get("mensagem")):
-                        achados.append(checagens._a("REV", "bloqueio" if a.get("gravidade") == "bloqueio" else "aviso", _s(a["mensagem"], 300)))
+                        # O revisor é um modelo e já errou ao "bloquear" uma consulta correta: só as checagens fixas e os testes bloqueiam.
+                        # O que ele aponta vira aviso para o Master conferir (e o veredito pede atenção).
+                        achados.append(checagens._a("REV", "aviso", ("Revisor (modelo), confira: " if a.get("gravidade") == "bloqueio" else "") + _s(a["mensagem"], 300)))
             except ErroAgente as e:
                 limites.append(f"a revisão do código pelo modelo não rodou ({e}); valeram só as checagens fixas")
         else:

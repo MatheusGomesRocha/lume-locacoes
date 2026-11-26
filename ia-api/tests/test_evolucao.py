@@ -194,9 +194,17 @@ def test_vazamento_de_campo_pessoal_reprova_mesmo_sem_ninguem_ver():
     assert any(c["tipo"] == "vazamento" and not c["passou"] for c in av["casos"])
 
 
-def test_revisor_pode_bloquear_e_sem_modelo_pede_atencao():
+def test_revisor_modelo_aponta_mas_so_as_checagens_fixas_bloqueiam():
     av = Tester(Modelo(revisao=[{"gravidade": "bloqueio", "mensagem": "a consulta mostra inativos sem avisar"}])).avaliar(PROPOSTA, pacote())
-    assert "REV" in codigos(av) and av["veredito"] == "reprovar_recomendado"
+    rev = [a for a in av["achados"] if a["codigo"] == "REV"]
+    assert rev and rev[0]["gravidade"] == "aviso" and rev[0]["mensagem"].startswith("Revisor (modelo), confira:")
+    assert av["veredito"] == "revisar_com_atencao"
+
+
+def test_tester_nao_espera_soma_de_uma_contagem():
+    brutos = [{"tipo": "execucao", "descricao": "d", "sessao": "master", "params": {}, "esperado": {"total": 1, "soma": 0}}]
+    assert agentes.validar_casos_llm(brutos, "contar")[0]["esperado"] == {"total": 1}
+    assert agentes.validar_casos_llm(brutos, "somar")[0]["esperado"] == {"total": 1, "soma": 0}
     sem = Tester(None).avaliar(PROPOSTA, pacote())
     assert sem["veredito"] == "revisar_com_atencao" and sem["limites"]
 
