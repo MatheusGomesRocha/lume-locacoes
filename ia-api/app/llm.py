@@ -19,7 +19,7 @@ from typing import Protocol
 
 import httpx
 
-from app import ferramentas
+from app import consumo, ferramentas
 
 log = logging.getLogger("lume.llm")
 
@@ -98,6 +98,7 @@ class ProvedorGemini:
         }
         r = self._enviar(corpo)
         try:
+            consumo.somar_da_resposta(r.json())
             partes = r.json()["candidates"][0]["content"]["parts"]
             texto = "".join(p.get("text", "") for p in partes).strip()
         except (KeyError, IndexError, TypeError, ValueError) as e:
@@ -118,6 +119,7 @@ class ProvedorGemini:
         }
         r = self._enviar(corpo)
         try:
+            consumo.somar_da_resposta(r.json())
             partes = r.json()["candidates"][0]["content"]["parts"]
         except (KeyError, IndexError, TypeError, ValueError) as e:
             raise ErroLLM("resposta do provedor em formato inesperado") from e

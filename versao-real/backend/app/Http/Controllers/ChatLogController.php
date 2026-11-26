@@ -38,6 +38,10 @@ class ChatLogController extends Controller
             'usou_contexto' => 'boolean',
             'latencia_ms' => 'integer|min:0|max:600000',
             'voltas' => 'integer|min:1|max:5',
+            'tokens_entrada' => 'integer|min:0|max:10000000',
+            'tokens_saida' => 'integer|min:0|max:10000000',
+            'custo_usd' => 'numeric|min:0|max:1000',
+            'versao' => 'nullable|string|max:20',
         ]);
 
         return response()->json(ChatLog::create($dados)->fresh(), 201);

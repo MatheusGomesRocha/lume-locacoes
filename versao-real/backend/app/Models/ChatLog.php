@@ -8,7 +8,7 @@ class ChatLog extends Model
 {
     protected $fillable = [
         'pergunta', 'resposta', 'tipo', 'fonte_id', 'ferramenta', 'gerada_por_llm', 'em_cache',
-        'usou_contexto', 'latencia_ms', 'voltas', 'feedback', 'desfecho',
+        'usou_contexto', 'latencia_ms', 'voltas', 'feedback', 'desfecho', 'tokens_entrada', 'tokens_saida', 'custo_usd', 'versao',
     ];
 
     protected $casts = [
@@ -17,6 +17,9 @@ class ChatLog extends Model
         'usou_contexto' => 'boolean',
         'latencia_ms' => 'integer',
         'voltas' => 'integer',
+        'tokens_entrada' => 'integer',
+        'tokens_saida' => 'integer',
+        'custo_usd' => 'float',
     ];
 
     /** O front usa `criado_em`; o banco guarda `created_at`. */

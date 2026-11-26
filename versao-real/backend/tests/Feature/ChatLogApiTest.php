@@ -38,6 +38,14 @@ class ChatLogApiTest extends TestCase
         $this->assertDatabaseCount('chat_logs', 1);
     }
 
+    public function test_guarda_tokens_custo_e_versao_da_pergunta(): void
+    {
+        $this->postJson('/api/chat-logs', $this->dados(['tokens_entrada' => 1200, 'tokens_saida' => 80, 'custo_usd' => 0.000152, 'versao' => 'a1b2c3d']))
+            ->assertCreated()->assertJsonPath('tokens_entrada', 1200)->assertJsonPath('tokens_saida', 80)->assertJsonPath('versao', 'a1b2c3d');
+        $this->postJson('/api/chat-logs', $this->dados())->assertCreated()->assertJsonPath('tokens_entrada', 0)->assertJsonPath('versao', null); // sem consumo: zero
+        $this->postJson('/api/chat-logs', $this->dados(['tokens_entrada' => -1]))->assertUnprocessable()->assertJsonValidationErrors('tokens_entrada');
+    }
+
     public function test_valida_tipo_e_tamanho(): void
     {
         $this->postJson('/api/chat-logs', $this->dados(['tipo' => 'outro']))->assertUnprocessable()->assertJsonValidationErrors('tipo');

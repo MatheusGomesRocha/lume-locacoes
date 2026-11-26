@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from typing import Annotated, Any
 
 from app import agente as conversa_agente
-from app import ferramentas
+from app import consumo, ferramentas
 from app.conversa import resposta_de_conversa
 from app.cache import cache_do_ambiente, chave_da_conversa, versao_do_conteudo
 from app.busca import BaseConhecimento, Contexto, Resultado, pede_dados_do_sistema
@@ -315,8 +315,22 @@ TEXTO_USUARIO_DO_SISTEMA = (
 )
 
 
+# Identifica a versão do assistente nas métricas: no Render, o commit publicado; fora dele, "dev".
+VERSAO = (os.getenv("RENDER_GIT_COMMIT") or os.getenv("IA_VERSAO") or "dev")[:7]
+
+
 @app.post("/chat", dependencies=[Depends(exigir_token), Depends(limitar)])
 def chat(dados: PerguntaIn):
+    """Responde e acrescenta quanto a pergunta gastou do modelo (`consumo`) e qual versão respondeu (`versao`)."""
+    consumo.iniciar()
+    resposta = _responder(dados)
+    if isinstance(resposta, dict):
+        gasto = consumo.resumo()
+        resposta = {**resposta, "versao": VERSAO, **({"consumo": gasto} if gasto else {})}
+    return resposta
+
+
+def _responder(dados: PerguntaIn):
     pergunta = dados.pergunta.strip()
     if len(pergunta) < 2 and not dados.agente:
         raise HTTPException(status_code=422, detail="A pergunta precisa de pelo menos 2 caracteres.")
