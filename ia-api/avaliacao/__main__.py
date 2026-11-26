@@ -4,6 +4,9 @@
   python -m avaliacao --local                                    # coleta + pontua em processo (precisa de GEMINI_API_KEY)
   python -m avaliacao --pontuar avaliacao/respostas.json         # só pontua respostas já coletadas (sem rede)
 
+  python -m avaliacao --agente [--juiz]                          # conversas do agente (golden set) e, se pedido, o juiz
+  python -m avaliacao --calibrar-juiz                            # o juiz concorda com as notas humanas?
+
 Opções: --grupo faq, --sem-modelo, --minimo 0.85 (sai com erro se a taxa geral ficar abaixo), --md relatorio.md, --salvar respostas.json
 """
 import argparse
@@ -18,7 +21,7 @@ from avaliacao.pontuar import pontuar, relatorio_md, taxa
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="avaliacao")
-    origem = p.add_mutually_exclusive_group(required=True)
+    origem = p.add_mutually_exclusive_group()
     origem.add_argument("--url")
     origem.add_argument("--local", action="store_true")
     origem.add_argument("--pontuar", metavar="ARQUIVO")
@@ -29,7 +32,16 @@ def main(argv=None) -> int:
     p.add_argument("--minimo", type=float)
     p.add_argument("--md")
     p.add_argument("--salvar")
+    p.add_argument("--agente", action="store_true", help="golden set do agente (conversas); com --url usa o modelo de verdade")
+    p.add_argument("--juiz", action="store_true", help="com --agente: chama o LLM-as-judge (precisa de GEMINI_API_KEY)")
+    p.add_argument("--minimo-juiz", type=float, help="com --juiz: sai com erro se o juiz aprovar menos que isto")
+    p.add_argument("--calibrar-juiz", action="store_true", help="compara o juiz com as notas humanas de avaliacao/calibracao_juiz.json")
     a = p.parse_args(argv)
+    if a.agente or a.calibrar_juiz:
+        from avaliacao.rodar_agente import principal
+        return principal(a)
+    if not (a.url or a.local or a.pontuar):
+        p.error("escolha --url, --local, --pontuar ou --agente")
 
     casos = carregar_casos(a.grupo, a.sem_modelo)
     if a.pontuar:

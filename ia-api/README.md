@@ -66,6 +66,28 @@ A chave fica só no servidor. Crie uma em https://aistudio.google.com/apikey (pl
 veja o AI Studio). Os termos do plano gratuito permitem que o Google use o conteúdo enviado, então não coloque dados
 sensíveis no FAQ.
 
+### Agente conversacional (criar orçamento e cliente falando no chat)
+
+Quando o pedido já traz dados ("Crie um orçamento para João Victor, com 2 mesas e 20 cadeiras para o evento de Casamento no dia 26/11/2026"), a Lumi conduz uma **conversa**, sem formulário. Sem dados ("quero criar um orçamento"), o formulário de sempre continua.
+
+- **Quem faz o quê.** O Gemini só entende o pedido inicial (`decidir_acao`). Daí em diante o **código** decide cada passo (`app/agente.py`): é previsível, testável e não gasta cota. A API continua sem guardar nada: o estado da conversa (`agente`) volta em cada resposta e o front o devolve na mensagem seguinte.
+- **Leituras** (o front executa com as permissões de quem está logado, em até 5 voltas): `localizar_clientes`, `localizar_produtos`, `verificar_disponibilidade`.
+- **Cenários tratados:** cliente inexistente ("Não encontramos esse usuário": cadastrar, outro nome ou cancelar), mais de um cliente/produto parecido ("Qual João Victor deseja selecionar?"), produto inexistente (remover/trocar), sem data ("Qual data de retirada e data de devolução?"), sem evento ou itens, uma data só (vale para retirada e devolução, e o resumo avisa), devolução antes da retirada, estoque insuficiente (só aviso: rascunho não exige estoque), cliente novo cadastrado na própria conversa (tipo, contatos opcionais), cliente já existente, usuário sem permissão, pergunta de ajuda no meio do fluxo (sai do agente e responde), estado adulterado.
+- **Regra de ouro:** o agente **nunca grava sem autorização**. O resumo (com o total calculado pela mesma regra do sistema) termina em "Confirmar / Cancelar"; só uma resposta afirmativa **nessa etapa** gera `executar`. Qualquer outra coisa repete o pedido de confirmação; "não"/"cancelar" encerra sem gravar. Quem grava é o front, pela mesma API das telas (mesmas regras e permissões).
+- **Protocolo** (`POST /chat`): a requisição ganha `agente` (estado) e `resultados`; a resposta ganha `agente`, `opcoes` (botões), `consultas` e `executar`.
+
+### Golden set do agente e LLM-as-judge
+
+```bash
+python -m avaliacao --agente --minimo 1.0     # 15 conversas, decisão do modelo simulada (é o que o CI roda; sem chave)
+python -m avaliacao --agente --url https://lume-ia.onrender.com --juiz    # com o Gemini de verdade + juiz (semanal)
+python -m avaliacao --calibrar-juiz           # o juiz concorda com as notas humanas? (abaixo de 80%, não confie nele)
+```
+
+- `avaliacao/casos_agente.json`: cada caso tem o cenário (clientes, produtos, estoque, permissões), os turnos do usuário, o que esperar em cada um e uma **rubrica** em português para o juiz. `simulador.py` faz o papel do front (executa consultas e gravações num banco de brincadeira).
+- **Pontuação exata** (`pontuar_agente.py`): ferramentas consultadas, textos-chave, opções, o que foi gravado, totais e a invariante "nada é gravado sem confirmação".
+- **Juiz** (`juiz.py`): um modelo lê a conversa inteira, com os dados do cenário e a rubrica, e dá notas 0–5 de correção, fidelidade (nada inventado), segurança e conversa. Temperatura 0, saída em JSON, modelo configurável (`IA_JUIZ_MODELO`, de preferência diferente do assistente). **Fatos duros vencem o juiz**: gravar sem confirmação zera a segurança mesmo que o modelo aprove. Roda só no CI semanal/manual, nunca em produção.
+
 ### Cache
 
 A mesma conversa não paga duas vezes (`app/cache.py`): a resposta de ajuda redigida pelo modelo e a decisão de ferramenta ficam em
@@ -119,6 +141,7 @@ O resultado semântico só vale se passar de `0.74` **e** vencer o 2º lugar por
 | `IA_ORIGENS_PERMITIDAS` | `http://localhost:5173,http://127.0.0.1:5173` | Sites que podem chamar a API pelo navegador (CORS), separados por vírgula |
 | `IA_API_TOKEN` | vazio | Se definido, exige o header `X-API-Token`. **Não use com o GitHub Pages**: o token ficaria visível no navegador |
 | `GEMINI_API_KEY` | _(vazio: LLM desligado)_ | Chave do Google AI Studio |
+| `IA_JUIZ_MODELO` | Modelo do juiz da avaliação (padrão: o mesmo do assistente). |
 | `IA_LLM_MODELO` | `gemini-flash-lite-latest` | Modelo do Gemini; troque se o Google renomear |
 | `IA_LLM_LIMITE_DIARIO` | `200` | Chamadas ao LLM por dia; `0` desliga |
 | `IA_CACHE_TTL` | `86400` | Segundos que uma resposta fica no cache; `0` desliga |

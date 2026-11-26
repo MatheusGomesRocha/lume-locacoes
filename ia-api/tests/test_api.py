@@ -363,8 +363,9 @@ def test_segunda_volta_ignora_ferramenta_desconhecida_e_de_acao(com_llm):
 def test_cadastro_vira_acao_com_o_que_o_usuario_disse(com_llm):
     com_llm(ProvedorFalso(decisao=Decisao(chamadas=[chamada("cadastrar_cliente", nome="Padaria Sol", tipo="PJ")])))
     r = perguntar("quero cadastrar a Padaria Sol, é uma empresa")
-    assert r["acoes"] == [chamada("cadastrar_cliente", nome="Padaria Sol", tipo="PJ")]
-    assert "Confira os campos" in r["resposta"] and "consultas" not in r
+    # com dados para trabalhar, o agente conduz a conversa no chat (sem formulário); ver tests/test_agente.py
+    assert "acoes" not in r and r["consultas"][0]["args"] == {"busca": "Padaria Sol"} and r["agente"]["fluxo"] == "cliente"
+    assert r["resposta"] == ""  # a pergunta vem depois da consulta de duplicados
 
 
 def test_exclusao_vira_acao_que_ainda_depende_de_confirmacao(com_llm):

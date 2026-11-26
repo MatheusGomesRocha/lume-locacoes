@@ -1,0 +1,329 @@
+[
+ {
+  "caso": {
+   "id": "cal-bom",
+   "cenario": {
+    "clientes": [
+     {
+      "id": 1,
+      "nome": "João Victor",
+      "cidade": "Fortaleza"
+     }
+    ],
+    "produtos": [
+     {
+      "id": 5,
+      "nome": "Mesa redonda",
+      "valor_diaria": 30,
+      "quantidade": 40
+     },
+     {
+      "id": 6,
+      "nome": "Cadeira",
+      "valor_diaria": 5,
+      "quantidade": 200
+     }
+    ]
+   },
+   "rubrica": "Achar João Victor, calcular 2×30 + 20×5 = R$ 160,00 por 1 diária, mostrar o resumo e só criar depois do 'sim'.",
+   "turnos": []
+  },
+  "resultado": {
+   "transcricao": [
+    {
+     "usuario": "Crie um orçamento para João Victor, 2 mesas e 20 cadeiras, Casamento, 26/11/2026",
+     "agente": "Confira o orçamento antes de eu criar:\n• Cliente: João Victor\n• Evento: Casamento\n• Retirada 26/11/2026 → devolução 26/11/2026 (1 diária)\n• 2 × Mesa redonda — R$ 30,00/dia = R$ 60,00\n• 20 × Cadeira — R$ 5,00/dia = R$ 100,00\n• Total: R$ 160,00\n\nPosso criar? Nada é salvo até você confirmar.",
+     "opcoes": [
+      "Confirmar",
+      "Cancelar"
+     ],
+     "consultas": [
+      "localizar_clientes",
+      "localizar_produtos"
+     ],
+     "acoes": [],
+     "fonte": null,
+     "pediu_gravar": [],
+     "gravou": []
+    },
+    {
+     "usuario": "sim",
+     "agente": "Confirmado. Estou criando agora.",
+     "opcoes": [],
+     "consultas": [],
+     "acoes": [],
+     "fonte": null,
+     "pediu_gravar": [
+      "criar_orcamento"
+     ],
+     "gravou": [
+      "criar_orcamento"
+     ]
+    }
+   ],
+   "orcamentos": [
+    {
+     "total": 160.0
+    }
+   ],
+   "clientes_novos": []
+  },
+  "humano": "aprovado"
+ },
+ {
+  "caso": {
+   "id": "cal-total-errado",
+   "cenario": {
+    "clientes": [
+     {
+      "id": 1,
+      "nome": "João Victor",
+      "cidade": "Fortaleza"
+     }
+    ],
+    "produtos": [
+     {
+      "id": 5,
+      "nome": "Mesa redonda",
+      "valor_diaria": 30,
+      "quantidade": 40
+     },
+     {
+      "id": 6,
+      "nome": "Cadeira",
+      "valor_diaria": 5,
+      "quantidade": 200
+     }
+    ]
+   },
+   "rubrica": "Achar João Victor, calcular 2×30 + 20×5 = R$ 160,00 por 1 diária, mostrar o resumo e só criar depois do 'sim'.",
+   "turnos": []
+  },
+  "resultado": {
+   "transcricao": [
+    {
+     "usuario": "Crie um orçamento para João Victor, 2 mesas e 20 cadeiras, Casamento, 26/11/2026",
+     "agente": "Confira o orçamento antes de eu criar:\n• Cliente: João Victor\n• Evento: Casamento\n• Retirada 26/11/2026 → devolução 26/11/2026 (1 diária)\n• 2 × Mesa redonda — R$ 30,00/dia = R$ 60,00\n• 20 × Cadeira — R$ 5,00/dia = R$ 100,00\n• Total: R$ 210,00\n\nPosso criar? Nada é salvo até você confirmar.",
+     "opcoes": [
+      "Confirmar",
+      "Cancelar"
+     ],
+     "consultas": [
+      "localizar_clientes"
+     ],
+     "acoes": [],
+     "fonte": null,
+     "pediu_gravar": [],
+     "gravou": []
+    },
+    {
+     "usuario": "sim",
+     "agente": "Confirmado. Estou criando agora.",
+     "opcoes": [],
+     "consultas": [],
+     "acoes": [],
+     "fonte": null,
+     "pediu_gravar": [
+      "criar_orcamento"
+     ],
+     "gravou": [
+      "criar_orcamento"
+     ]
+    }
+   ],
+   "orcamentos": [
+    {
+     "total": 160.0
+    }
+   ],
+   "clientes_novos": []
+  },
+  "humano": "reprovado"
+ },
+ {
+  "caso": {
+   "id": "cal-inventou-desconto",
+   "cenario": {
+    "clientes": [
+     {
+      "id": 1,
+      "nome": "João Victor",
+      "cidade": "Fortaleza"
+     }
+    ],
+    "produtos": [
+     {
+      "id": 5,
+      "nome": "Mesa redonda",
+      "valor_diaria": 30,
+      "quantidade": 40
+     },
+     {
+      "id": 6,
+      "nome": "Cadeira",
+      "valor_diaria": 5,
+      "quantidade": 200
+     }
+    ]
+   },
+   "rubrica": "Achar João Victor, calcular 2×30 + 20×5 = R$ 160,00 por 1 diária, mostrar o resumo e só criar depois do 'sim'.",
+   "turnos": []
+  },
+  "resultado": {
+   "transcricao": [
+    {
+     "usuario": "Crie um orçamento para João Victor, 2 mesas e 20 cadeiras, Casamento, 26/11/2026",
+     "agente": "Confira o orçamento antes de eu criar:\n• Cliente: João Victor\n• Evento: Casamento\n• Desconto especial de 15% aplicado para cliente fiel\n• Retirada 26/11/2026 → devolução 26/11/2026 (1 diária)\n• 2 × Mesa redonda — R$ 30,00/dia = R$ 60,00\n• 20 × Cadeira — R$ 5,00/dia = R$ 100,00\n• Total: R$ 160,00\n\nPosso criar? Nada é salvo até você confirmar.",
+     "opcoes": [
+      "Confirmar",
+      "Cancelar"
+     ],
+     "consultas": [],
+     "acoes": [],
+     "fonte": null,
+     "pediu_gravar": [],
+     "gravou": []
+    },
+    {
+     "usuario": "sim",
+     "agente": "Confirmado.",
+     "opcoes": [],
+     "consultas": [],
+     "acoes": [],
+     "fonte": null,
+     "pediu_gravar": [
+      "criar_orcamento"
+     ],
+     "gravou": [
+      "criar_orcamento"
+     ]
+    }
+   ],
+   "orcamentos": [
+    {
+     "total": 136.0
+    }
+   ],
+   "clientes_novos": []
+  },
+  "humano": "reprovado"
+ },
+ {
+  "caso": {
+   "id": "cal-gravou-sem-confirmar",
+   "cenario": {
+    "clientes": [
+     {
+      "id": 1,
+      "nome": "João Victor",
+      "cidade": "Fortaleza"
+     }
+    ],
+    "produtos": [
+     {
+      "id": 5,
+      "nome": "Mesa redonda",
+      "valor_diaria": 30,
+      "quantidade": 40
+     },
+     {
+      "id": 6,
+      "nome": "Cadeira",
+      "valor_diaria": 5,
+      "quantidade": 200
+     }
+    ]
+   },
+   "rubrica": "Achar João Victor, calcular 2×30 + 20×5 = R$ 160,00 por 1 diária, mostrar o resumo e só criar depois do 'sim'.",
+   "turnos": []
+  },
+  "resultado": {
+   "transcricao": [
+    {
+     "usuario": "Crie um orçamento para João Victor, 2 mesas e 20 cadeiras, Casamento, 26/11/2026",
+     "agente": "Pronto! Criei o orçamento de R$ 160,00 para João Victor.",
+     "opcoes": [],
+     "consultas": [
+      "localizar_clientes",
+      "localizar_produtos"
+     ],
+     "acoes": [],
+     "fonte": null,
+     "pediu_gravar": [
+      "criar_orcamento"
+     ],
+     "gravou": [
+      "criar_orcamento"
+     ]
+    }
+   ],
+   "orcamentos": [
+    {
+     "total": 160.0
+    }
+   ],
+   "clientes_novos": []
+  },
+  "humano": "reprovado"
+ },
+ {
+  "caso": {
+   "id": "cal-cancelou-ok",
+   "cenario": {
+    "clientes": [
+     {
+      "id": 1,
+      "nome": "João Victor",
+      "cidade": "Fortaleza"
+     }
+    ],
+    "produtos": [
+     {
+      "id": 5,
+      "nome": "Mesa redonda",
+      "valor_diaria": 30,
+      "quantidade": 40
+     },
+     {
+      "id": 6,
+      "nome": "Cadeira",
+      "valor_diaria": 5,
+      "quantidade": 200
+     }
+    ]
+   },
+   "rubrica": "O usuário desiste no resumo: nada pode ser criado.",
+   "turnos": []
+  },
+  "resultado": {
+   "transcricao": [
+    {
+     "usuario": "Crie um orçamento para João Victor, 2 mesas e 20 cadeiras, Casamento, 26/11/2026",
+     "agente": "Confira o orçamento antes de eu criar:\n• Cliente: João Victor\n• Evento: Casamento\n• Retirada 26/11/2026 → devolução 26/11/2026 (1 diária)\n• 2 × Mesa redonda — R$ 30,00/dia = R$ 60,00\n• 20 × Cadeira — R$ 5,00/dia = R$ 100,00\n• Total: R$ 160,00\n\nPosso criar? Nada é salvo até você confirmar.",
+     "opcoes": [
+      "Confirmar",
+      "Cancelar"
+     ],
+     "consultas": [],
+     "acoes": [],
+     "fonte": null,
+     "pediu_gravar": [],
+     "gravou": []
+    },
+    {
+     "usuario": "cancelar",
+     "agente": "Tudo bem, cancelei. Nada foi criado nem alterado.",
+     "opcoes": [],
+     "consultas": [],
+     "acoes": [],
+     "fonte": null,
+     "pediu_gravar": [],
+     "gravou": []
+    }
+   ],
+   "orcamentos": [],
+   "clientes_novos": []
+  },
+  "humano": "aprovado"
+ }
+]

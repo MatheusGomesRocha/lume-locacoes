@@ -41,7 +41,8 @@ class ChatController extends Controller
     public function perguntar(Request $request): JsonResponse
     {
         $dados = $request->validate([
-            'pergunta' => 'required|string|min:2|max:500',
+            // 1 caractere só vale como resposta ao agente ("2" escolhe a opção 2); a API Python exige 2 fora disso.
+            'pergunta' => 'required|string|max:500|min:' . ($request->filled('agente') ? 1 : 2),
             // Contexto da conversa: o front manda, o Laravel só repassa (a API Python não guarda nada).
             'historico' => 'sometimes|nullable|array|max:6',
             'historico.*' => 'nullable|string|max:500',
@@ -51,6 +52,8 @@ class ChatController extends Controller
             // Segunda volta de uma consulta: o que o front leu pelas telas. O Laravel só repassa; a API Python valida.
             'resultados' => 'sometimes|nullable|array|max:3',
             'resultados.*' => 'array',
+            // Conversa do agente em andamento (criar orçamento/cliente falando). O Laravel só repassa; a API Python valida o estado.
+            'agente' => 'sometimes|nullable|array',
         ]);
 
         $corpo = ['pergunta' => $dados['pergunta']];
@@ -63,6 +66,9 @@ class ChatController extends Controller
         }
         if (! empty($dados['hoje'])) {
             $corpo['hoje'] = $dados['hoje'];
+        }
+        if (! empty($dados['agente'])) {
+            $corpo['agente'] = $dados['agente'];
         }
         if (! empty($dados['resultados'])) {
             $corpo['resultados'] = array_values($dados['resultados']);

@@ -16,8 +16,12 @@ jobs:
       # Avaliação do assistente sem o Gemini (46 casos de FAQ, contexto, segurança...): reprova o commit se cair de 100%.
       - run: python -m avaliacao --local --sem-modelo --pausa 0 --minimo 1.0 --md avaliacao-ci.md
         env: { IA_LIMITE_POR_MINUTO: '1000' }
+      # Golden set do agente (15 conversas: cliente inexistente/duplicado, sem data, cliente novo, nada gravado sem "sim"...).
+      # A decisão do modelo é simulada, então roda sem chave; reprova o commit se qualquer conversa fugir do esperado.
+      - run: python -m avaliacao --agente --minimo 1.0 --md avaliacao-agente-ci.md
+        env: { IA_LIMITE_POR_MINUTO: '1000' }
       - if: always()
-        run: cat avaliacao-ci.md >> "$GITHUB_STEP_SUMMARY" || true
+        run: cat avaliacao-ci.md avaliacao-agente-ci.md >> "$GITHUB_STEP_SUMMARY" || true
 
   backend:
     runs-on: ubuntu-latest

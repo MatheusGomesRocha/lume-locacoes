@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Annotated, Any
 
+from app import agente as conversa_agente
 from app import ferramentas
 from app.conversa import resposta_de_conversa
 from app.cache import cache_do_ambiente, chave_da_conversa, versao_do_conteudo
@@ -92,7 +93,7 @@ class ItemExtra(BaseModel):
 
 
 class PerguntaIn(BaseModel):
-    pergunta: str = Field(min_length=2, max_length=500)
+    pergunta: str = Field(min_length=1, max_length=500)  # 1 caractere só vale como resposta ao agente ("2" escolhe a opção 2)
     # Contexto opcional: o que o usuário perguntou antes e qual foi a última resposta dada.
     # A API não guarda conversa; quem chama manda isso a cada pergunta.
     historico: list[Annotated[str, Field(max_length=500)]] = Field(default_factory=list, max_length=6)
@@ -101,6 +102,8 @@ class PerguntaIn(BaseModel):
     hoje: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     # Segunda volta: o que as consultas pedidas na primeira volta devolveram (o front as executa).
     resultados: list[dict[str, Any]] | None = Field(default=None, max_length=3)
+    # Conversa do agente em andamento (criar orçamento/cliente falando no chat). O estado volta a cada resposta; ver app/agente.py.
+    agente: dict[str, Any] | None = None
     # FAQ extra (o que o master respondeu a partir das perguntas sem resposta). O Laravel/o front manda a lista a cada pergunta.
     faq_extra: list[ItemExtra] = Field(default_factory=list, max_length=MAX_FAQ_EXTRA)
 
@@ -170,6 +173,12 @@ def _resposta_agente(resposta: str, **extra) -> dict:
     return {"encontrou": True, "resposta": resposta, "fonte": None, "confianca": 1.0, "relacionadas": [], "usou_contexto": True, "gerada_por_llm": True, **extra}
 
 
+def _da_conversa(passo: dict) -> dict:
+    """Resposta do agente conversacional: texto, novo estado (None encerra), opções clicáveis, consultas a executar ou gravações JÁ confirmadas."""
+    extra = {k: passo[k] for k in ("opcoes", "consultas", "executar") if passo.get(k)}
+    return _resposta_agente(passo["texto"], agente=passo["agente"], gerada_por_llm=False, **extra)
+
+
 TEXTO_DA_ACAO = {
     "cadastrar_cliente": "Abri o cadastro de cliente com o que você informou. Confira os campos e salve.",
     "cadastrar_produto": "Abri o cadastro de produto com o que você informou. Confira os campos e salve.",
@@ -200,6 +209,11 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
         if consultas:  # consultar e agir no mesmo pedido não é suportado: a consulta vem primeiro
             return _resposta_agente("", consultas=consultas, em_cache=em_cache)
         acoes = decisao.chamadas[:1]  # uma ação por vez: cada uma tem a sua confirmação
+        # Com dados para trabalhar, o agente conduz a conversa no chat (sem formulário); sem dados, abre o formulário de sempre.
+        if acoes[0]["nome"] in ("cadastrar_orcamento", "cadastrar_cliente"):
+            passo = conversa_agente.iniciar(acoes[0]["nome"], acoes[0]["args"], dados.hoje)
+            if passo:
+                return {**_da_conversa(passo), "em_cache": em_cache, "gerada_por_llm": True}
         return _resposta_agente(TEXTO_DA_ACAO[acoes[0]["nome"]], acoes=acoes, em_cache=em_cache)
     if decisao.texto and decisao.texto.strip().strip(".!").upper() != AJUDA:
         return _resposta_agente(decisao.texto[:400])
@@ -209,7 +223,16 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
 @app.post("/chat", dependencies=[Depends(exigir_token), Depends(limitar)])
 def chat(dados: PerguntaIn):
     pergunta = dados.pergunta.strip()
+    if len(pergunta) < 2 and not dados.agente:
+        raise HTTPException(status_code=422, detail="A pergunta precisa de pelo menos 2 caracteres.")
+    if not pergunta:
+        raise HTTPException(status_code=422, detail="A mensagem está vazia.")
     contexto = Contexto([p.strip() for p in dados.historico if p.strip()][-3:], dados.ultimo_id)
+
+    if dados.agente:  # há uma conversa do agente em andamento: a mensagem é a resposta à pergunta dele
+        passo = conversa_agente.continuar(dados.agente, pergunta, dados.resultados, dados.hoje)
+        if passo:
+            return _da_conversa(passo)
 
     base_local, versao_extras = base_para(dados.faq_extra)
 

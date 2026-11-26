@@ -155,6 +155,19 @@ class ChatApiTest extends TestCase
         $this->postJson('/api/chat', ['pergunta' => 'cadastra a Ana'])->assertOk()->assertJsonPath('acoes', $acoes);
     }
 
+    public function test_repassa_o_estado_do_agente_e_aceita_resposta_de_um_caractere_so_com_ele(): void
+    {
+        config(['services.ia.url' => 'http://ia.test']);
+        Http::fake(['ia.test/chat' => Http::response(['encontrou' => true, 'resposta' => 'Resumo', 'agente' => null, 'executar' => [['nome' => 'criar_orcamento', 'args' => []]]])]);
+        $estado = ['fluxo' => 'orcamento', 'aguardando' => 'escolher_cliente', 'rascunho' => ['cliente_nome' => 'João Victor', 'itens' => []]];
+
+        $this->postJson('/api/chat', ['pergunta' => '2', 'agente' => $estado])->assertOk()->assertJsonPath('executar.0.nome', 'criar_orcamento');
+        Http::assertSent(fn ($r) => $r['agente'] === $estado && $r['pergunta'] === '2');
+
+        $this->postJson('/api/chat', ['pergunta' => '2'])->assertStatus(422);
+        $this->postJson('/api/chat', ['pergunta' => 'oi tudo', 'agente' => 'texto solto'])->assertStatus(422);
+    }
+
     public function test_valida_a_data_e_os_resultados(): void
     {
         Http::fake();
