@@ -317,3 +317,17 @@ def test_ler_sem_resposta_agrupa_e_ordena(tmp_path):
 
 def test_descrever_em_portugues():
     assert relatorio.descrever(SPEC).startswith("Conta Usuários do sistema onde Perfil é igual a")
+
+
+def test_json_quebrado_tenta_de_novo_e_usa_saida_grande():
+    from evolucao.agentes import chamar_json
+
+    class P:
+        max_saida, temperatura, json, tempo_da_chamada = 400, 0.2, False, None
+        def __init__(self): self.vistos = []
+        def gerar(self, s, u):
+            self.vistos.append((self.max_saida, self.json))
+            return '{"a": 1' if len(self.vistos) == 1 else '{"a": 1}'
+    p = P()
+    assert chamar_json(p, None, "s", "u") == {"a": 1}
+    assert (p.max_saida, p.json) == (400, False)

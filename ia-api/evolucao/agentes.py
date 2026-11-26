@@ -5,6 +5,7 @@
   Tester     (Agent 3): proposta + checagens fixas + pacote -> avaliação (casos com esperado SELADO antes de rodar)
 """
 import hashlib
+import copy
 import json
 import re
 from datetime import datetime
@@ -33,17 +34,30 @@ def _json_da_resposta(texto: str) -> dict:
     return d
 
 
-def chamar_json(provedor, limitador, sistema: str, usuario: str) -> dict:
+def _para_json(provedor):
+    """Cópia do provedor para respostas longas em JSON: a de 400 tokens do chat corta o JSON no meio."""
+    if not hasattr(provedor, "max_saida"):
+        return provedor
+    p = copy.copy(provedor)
+    p.temperatura, p.max_saida, p.json, p.tempo_da_chamada = 0.1, 4000, True, 60.0
+    return p
+
+
+def chamar_json(provedor, limitador, sistema: str, usuario: str, tentativas: int = 2) -> dict:
     if provedor is None:
         raise ErroAgente("sem modelo configurado")
-    if limitador is not None and not limitador.permitir():
-        raise ErroAgente("limite diário de chamadas ao modelo atingido")
-    try:
-        return _json_da_resposta(provedor.gerar(sistema, usuario))
-    except ErroAgente:
-        raise
-    except Exception as e:  # falha do provedor
-        raise ErroAgente(f"falha ao chamar o modelo: {e}") from None
+    modelo = _para_json(provedor)
+    ultimo: Exception | None = None
+    for _ in range(tentativas):  # JSON quebrado é falha do modelo, não da pergunta: tenta de novo uma vez
+        if limitador is not None and not limitador.permitir():
+            raise ErroAgente("limite diário de chamadas ao modelo atingido")
+        try:
+            return _json_da_resposta(modelo.gerar(sistema, usuario))
+        except ErroAgente as e:
+            ultimo = e
+        except Exception as e:  # falha do provedor
+            raise ErroAgente(f"falha ao chamar o modelo: {e}") from None
+    raise ultimo  # type: ignore[misc]
 
 
 def _s(v, n=300) -> str:

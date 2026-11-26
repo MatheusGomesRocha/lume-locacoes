@@ -62,6 +62,7 @@ class ProvedorGemini:
     temperatura = 0.2
     max_saida = 400
     json = False
+    tempo_da_chamada: float | None = None  # sobrescreve o tempo limite do cliente (os Agents geram textos longos)
     # 429 (limite por minuto da cota gratuita) e 503 (sobrecarga) costumam passar sozinhos: tenta de novo, esperando um pouco mais a cada vez.
     tentativas = 2
     espera = 1.0
@@ -74,7 +75,7 @@ class ProvedorGemini:
     def _enviar(self, corpo: dict) -> httpx.Response:
         for tentativa in range(1, self.tentativas + 1):
             try:
-                r = self._cliente.post(URL_GEMINI.format(modelo=self.modelo), json=corpo, headers={"x-goog-api-key": self.chave})
+                r = self._cliente.post(URL_GEMINI.format(modelo=self.modelo), json=corpo, headers={"x-goog-api-key": self.chave}, **({"timeout": self.tempo_da_chamada} if self.tempo_da_chamada else {}))
             except httpx.HTTPError as e:
                 raise ErroLLM(f"falha de rede: {type(e).__name__}") from e
             if r.status_code in (429, 503) and tentativa < self.tentativas:
