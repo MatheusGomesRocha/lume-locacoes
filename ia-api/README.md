@@ -74,6 +74,24 @@ ou pontuação) + o contexto da conversa + uma versão do conteúdo (FAQ, instru
 **Nunca** entram no cache respostas montadas com dados do sistema (os números mudam) nem falhas do modelo. `/health` mostra
 `llm_chamadas_hoje` e as estatísticas do cache (`acertos`, `erros`, `taxa_de_acerto`).
 
+## Avaliação
+
+62 perguntas com a resposta esperada (`avaliacao/casos.json`), em 8 grupos. Cada caso diz o que **precisa** acontecer (fonte do FAQ, ferramenta chamada,
+argumentos certos, texto que deve ou não aparecer); não compara frase com frase, porque o modelo pode redigir de formas diferentes.
+
+```bash
+python -m avaliacao --local --pausa 0                  # em processo, sem LLM (só o que não depende do modelo)
+python -m avaliacao --url https://lume-ia.onrender.com # a API de verdade, com o Gemini (3 chamadas/s no máx.; leva ~3 min)
+python -m avaliacao --pontuar resultados.json --minimo 0.9 --md relatorio.md   # só pontua um arquivo já coletado; sai com erro abaixo do mínimo
+```
+
+Última rodada **sem LLM** (em processo, 2026-11-25): FAQ 18/18, contexto 8/8, fora de escopo 5/5, conversa 2/2, segurança 6/6.
+Os 23 casos de **ferramentas** (consulta 12, cadastro 6, exclusão 5) dependem do Gemini e dão 0 sem ele, por construção.
+Falta rodar contra a API hospedada (precisa de rede liberada para `lume-ia.onrender.com`) e registrar o resultado aqui.
+
+O que a primeira rodada achou e foi corrigido: "e para aprovar?" depois de "como criar um orçamento" respondia sobre **criar** (o verbo antigo
+competia com o novo) e "oi" / "obrigado" respondiam "não encontrei".
+
 ## Variáveis de ambiente
 
 | Variável | Padrão | Para que serve |

@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from typing import Annotated, Any
 
 from app import ferramentas
+from app.conversa import resposta_de_conversa
 from app.cache import cache_do_ambiente, chave_da_conversa, versao_do_conteudo
 from app.busca import BaseConhecimento, Contexto, pede_dados_do_sistema
 from app.limite import LimitadorDeRequisicoes
@@ -163,6 +164,10 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
 def chat(dados: PerguntaIn):
     pergunta = dados.pergunta.strip()
     contexto = Contexto([p.strip() for p in dados.historico if p.strip()][-3:], dados.ultimo_id)
+
+    papo = resposta_de_conversa(pergunta)
+    if papo:
+        return {"encontrou": True, "resposta": papo, "fonte": None, "confianca": 1.0, "relacionadas": [], "usou_contexto": False, "gerada_por_llm": False}
 
     da_ferramenta = _agente(pergunta, contexto.perguntas_anteriores, dados)
     if da_ferramenta is not None:

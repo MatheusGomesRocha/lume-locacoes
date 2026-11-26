@@ -209,6 +209,10 @@ class BaseConhecimento:
                     continue
                 if assuntos_citados and termo in TODOS_OS_ASSUNTOS:
                     continue
+                # A pergunta já traz a ação ("e para aprovar?"): falta só o assunto, então só ele vem da conversa.
+                # Levar também a ação anterior ("criar") faria a pergunta antiga competir com a nova.
+                if tem_acao and termo not in TODOS_OS_ASSUNTOS:
+                    continue
                 consulta[termo] = qtd * self.idf[termo] * PESO_PERGUNTA_ANTERIOR
         return consulta, assunto, True
 
