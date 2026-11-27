@@ -353,3 +353,9 @@ def test_numero_do_orcamento_e_lista_e_numero_de_orcamentos_e_contagem():
     assert tipo_da_pergunta("qual o número de orçamentos criados hoje?") == "contar"
     assert tipo_da_pergunta("qual a quantidade de clientes novos?") == "contar"
     assert tipo_da_pergunta("quantos orçamentos foram criados hoje?") == "contar"
+
+
+def test_instrucoes_mandam_o_o_que_foi_pago_hoje_para_dados_e_a_data_usada_para_o_texto():
+    from app import llm
+    assert "o que foi pago" in llm.INSTRUCOES_AGENTE and "NÃO é dúvida" in llm.INSTRUCOES_AGENTE
+    assert "qual data foi usada" in llm.INSTRUCOES_DADOS
