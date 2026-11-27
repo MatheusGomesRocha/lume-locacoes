@@ -6,6 +6,7 @@ Quando o Tester (Agent 3) descobrir um tipo de falha que vale para toda consulta
 import re
 
 from app import ferramentas
+from evolucao.cobertura import nao_cobertas
 from evolucao.consulta import CHAVES_DA_SPEC, JANELAS, OPERACOES, OPS_POR_TIPO, ErroConsulta, ParametroInvalido, buscar_consulta, executar, pontuar, tipo_da_pergunta, valores_de_parametro
 from evolucao.esquema import DADOS_TESTE, ESQUEMA, HOJE_TESTE, PERMISSOES_VALIDAS, SESSOES_TESTE, TIPOS
 
@@ -147,6 +148,7 @@ def checar_spec(spec: dict, proposta: dict | None = None, catalogo: list[dict] |
             break
 
     f += _parametro_dinamico(spec)
+    f += _cobertura_dos_exemplos(spec, proposta)
 
     if any(SUSPEITO.search(t) for t in _textos({k: v for k, v in spec.items() if k != "nome"})):
         f.append(_a("C10", "bloqueio", "a consulta tem texto com cara de SQL, script ou instrução"))
@@ -183,6 +185,15 @@ def _par_de_periodo(spec: dict):
     return None
 
 
+def _com_obrigatorios(spec: dict, params: dict) -> dict:
+    """Completa os parâmetros obrigatórios que o teste não está exercitando (o primeiro valor do enum, 1, uma data), para só o período ser avaliado."""
+    saida = dict(params)
+    for nome, d in (spec.get("parametros") or {}).items():
+        if d.get("obrigatorio") and nome not in saida:
+            saida[nome] = (d.get("valores") or ["x"])[0] if d.get("tipo") == "enum" else 1 if d.get("tipo") == "numero" else "2026-11-20" if d.get("tipo") == "data" else "a"
+    return saida
+
+
 def _periodo_de_calendario(spec: dict) -> list[dict]:
     """C14 — consulta de período: início depois do fim tem que ser RECUSADO (não vira "0 resultados") e um período normal tem que rodar.
     Nasceu do aviso T02 da EV-0036: o Tester esperou erro para de > ate e a consulta devolveu total 0."""
@@ -192,16 +203,27 @@ def _periodo_de_calendario(spec: dict) -> list[dict]:
     de, ate, _ = par
     sessao = {**SESSOES_TESTE["master"], "hoje": HOJE_TESTE}
     try:
-        executar(spec, {de: "2026-11-26", ate: "2026-11-20"}, DADOS_TESTE, sessao)
+        executar(spec, _com_obrigatorios(spec, {de: "2026-11-26", ate: "2026-11-20"}), DADOS_TESTE, sessao)
         return [_a("C14", "bloqueio", f"consulta de período aceitou {de} depois de {ate} e respondeu como se fosse uma pergunta válida: deve recusar")]
     except ParametroInvalido:
         pass
     except ErroConsulta:
         return []  # permissão ou outra recusa: já aparece nas outras checagens
     try:
-        executar(spec, {de: "2026-11-20", ate: "2026-11-26"}, DADOS_TESTE, sessao)
+        executar(spec, _com_obrigatorios(spec, {de: "2026-11-20", ate: "2026-11-26"}), DADOS_TESTE, sessao)
     except ErroConsulta:
         return [_a("C14", "bloqueio", f"consulta de período recusou um período normal ({de} antes de {ate})")]
+    return []
+
+
+def _cobertura_dos_exemplos(spec: dict, proposta: dict | None) -> list[dict]:
+    """C19 — tudo o que a pergunta restringe (período, forma, situação) precisa ter parâmetro na consulta, senão ela devolve o total geral.
+    Nasceu de “quantos orçamentos foram pagos no cartão essa semana?”: a consulta só filtrava a forma e a resposta ignorou a semana."""
+    perguntas = [*(spec.get("exemplos") or []), *((proposta or {}).get("perguntas") or [])]
+    for ex in perguntas:
+        faltam = nao_cobertas(str(ex), spec, HOJE_TESTE)
+        if faltam:
+            return [_a("C19", "bloqueio", f"a pergunta “{ex}” pede {', '.join(r['rotulo'] for r in faltam)}, mas a consulta não tem parâmetro para isso (devolveria o total geral)")]
     return []
 
 

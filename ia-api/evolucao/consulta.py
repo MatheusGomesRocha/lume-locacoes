@@ -41,6 +41,15 @@ def sem_acento(t) -> str:
     return "".join(c for c in unicodedata.normalize("NFD", str(t).lower()) if unicodedata.category(c) != "Mn")
 
 
+def raiz(p: str) -> str:
+    """pagos/pagas/pago -> pago; pendentes -> pendente: a pergunta vem no plural e no feminino, o valor do campo no singular."""
+    if len(p) > 3 and p.endswith("s"):
+        p = p[:-1]
+    if len(p) > 3 and p.endswith("a"):
+        p = p[:-1] + "o"
+    return p
+
+
 def palavras(t) -> list[str]:
     return [p for p in re.split(r"[^a-z0-9]+", sem_acento(t)) if p]
 
@@ -219,16 +228,17 @@ def _termos_da(t, spec: dict) -> set[str]:
     return {_SLOT if p in slot else p for p in _termos(t)}
 
 
-def pontuar(pergunta: str, spec: dict) -> float:
+def pontuar(pergunta: str, spec: dict, sem_periodo: bool = False) -> float:
     """0 a 1: o quanto a pergunta se parece com os exemplos e palavras-chave desta consulta."""
-    q = _termos_da(pergunta, spec)
+    tira = {"periodo"} if sem_periodo else set()  # sem_periodo: achar a consulta do mesmo ASSUNTO, mesmo que a pergunta cite um período que ela não filtra
+    q = _termos_da(pergunta, spec) - tira
     declaradas = {p for k in [*(spec.get("palavras_chave") or []), *(spec.get("sinonimos") or {})] for p in _termos(k)}
     if not q or _fala_de_outra_entidade(q, spec.get("entidade", ""), declaradas):
         return 0.0
     valores = {p for lista in (spec.get("sinonimos") or {}).values() for s in lista for p in _termos(s)}
     melhor = 0.0
     for ex in spec.get("exemplos", []):
-        e = _termos_da(ex, spec)
+        e = _termos_da(ex, spec) - tira
         if e:
             melhor = max(melhor, len(q & e) / len(q | e))
     chaves = {_SLOT if p in valores_de_parametro(spec) else p for k in spec.get("palavras_chave", []) for p in _termos(k)} | _termos(spec.get("entidade", "")) | _termos_da_entidade(spec.get("entidade", ""))
@@ -256,13 +266,13 @@ def tipo_da_pergunta(pergunta: str) -> str | None:
     return None
 
 
-def buscar_consulta(pergunta: str, specs: list[dict], minimo: float = 0.5, margem: float = 0.1, por_tipo: bool = True) -> dict | None:
+def buscar_consulta(pergunta: str, specs: list[dict], minimo: float = 0.5, margem: float = 0.1, por_tipo: bool = True, sem_periodo: bool = False) -> dict | None:
     """A consulta que responde a pergunta, ou None quando não há uma com clareza (nunca adivinha entre duas).
     Com `por_tipo`, só vale consulta do mesmo tipo do pedido: contar não responde "quais os nomes"."""
     tipo = tipo_da_pergunta(pergunta) if por_tipo else None
     if tipo:
         specs = [s for s in specs if s.get("operacao") == tipo]
-    notas = sorted(((pontuar(pergunta, s), s) for s in specs), key=lambda x: -x[0])
+    notas = sorted(((pontuar(pergunta, s, sem_periodo), s) for s in specs), key=lambda x: -x[0])
     if not notas or notas[0][0] < minimo:
         return None
     if len(notas) > 1 and notas[0][0] - notas[1][0] < margem:
@@ -338,7 +348,10 @@ def extrair_parametros(pergunta: str, spec: dict, hoje=None) -> dict:
                     achados[f["parametro"]] = periodo[1]
                 elif periodo[0] == periodo[1]:
                     achados[f["parametro"]] = periodo[0]
-    q = set(palavras(pergunta))
+    exatas = set(palavras(pergunta))
+    q = {raiz(p) for p in exatas}
+    esq = ESQUEMA.get(spec.get("entidade")) or {}
+    do_assunto = {raiz(p) for p in palavras(esq.get("rotulo", spec.get("entidade", "")))} | {raiz(sem_acento(str(spec.get("entidade", ""))))}
     dias_da_pergunta = _dias_da_pergunta(pergunta)
     por_janela = {f.get("parametro") for f in spec.get("filtros", []) if f.get("op") in JANELAS}
     for nome, d in (spec.get("parametros") or {}).items():
@@ -347,7 +360,9 @@ def extrair_parametros(pergunta: str, spec: dict, hoje=None) -> dict:
         if d.get("tipo") != "enum":
             continue
         for v in d.get("valores", []):
-            candidatos = {sem_acento(v), *(p for s in (spec.get("sinonimos") or {}).get(v, []) for p in palavras(s))}
+            candidatos = {raiz(sem_acento(v)), *(raiz(p) for s in (spec.get("sinonimos") or {}).get(v, []) for p in palavras(s))}
+            if candidatos & do_assunto and sem_acento(v) not in exatas:  # "usuários" (plural) não é o perfil "usuario"
+                continue
             if candidatos & q:
                 achados[nome] = v
                 break

@@ -193,8 +193,9 @@ def test_seguimento_e_reformulado_com_o_historico(monkeypatch):
     chamadas = []
     monkeypatch.setattr(main, "provedor_llm", object())
     monkeypatch.setattr(main, "reformular_seguimento", lambda p, l, q, h: chamadas.append((q, h)) or "quais os nomes dos clientes cadastrados hoje?")
-    contar = {"nome": "c_hoje", "descricao": "Conta clientes cadastrados hoje", "entidade": "clientes", "operacao": "contar", "permissao": "clientes.ver", "saida": [], "parametros": {},
-              "exemplos": ["quantos clientes cadastrados hoje", "total de clientes cadastrados hoje", "numero de clientes cadastrados hoje"], "palavras_chave": ["clientes", "cadastrados"], "sinonimos": {}, "filtros": []}
+    contar = {"nome": "c_hoje", "descricao": "Conta clientes cadastrados hoje", "entidade": "clientes", "operacao": "contar", "permissao": "clientes.ver", "saida": [], "parametros": {"de": {"tipo": "data", "obrigatorio": True}, "ate": {"tipo": "data", "obrigatorio": True}},
+              "exemplos": ["quantos clientes cadastrados hoje", "total de clientes cadastrados hoje", "numero de clientes cadastrados hoje"], "palavras_chave": ["clientes", "cadastrados"], "sinonimos": {},
+              "filtros": [{"campo": "criado_em", "op": "maior_igual", "parametro": "de"}, {"campo": "criado_em", "op": "menor_igual", "parametro": "ate"}]}
     completa, duvida = main._completar_seguimento("e qual os nomes deles?", ["quantos clientes foram cadastrados hoje?"])
     assert duvida is None
     assert completa == "quais os nomes dos clientes cadastrados hoje?"
@@ -233,8 +234,9 @@ def test_reescrita_que_muda_o_pedido_ou_perde_o_assunto_vira_pergunta(monkeypatc
 
 def test_pedido_longo_de_nomes_acha_a_consulta_do_mesmo_assunto(monkeypatch):
     from app import main
-    contar = {"nome": "c_hoje", "descricao": "Conta clientes cadastrados hoje", "entidade": "clientes", "operacao": "contar", "permissao": "clientes.ver", "saida": [], "parametros": {},
-              "exemplos": ["quantos clientes cadastrados hoje", "total de clientes cadastrados hoje", "numero de clientes cadastrados hoje"], "palavras_chave": ["clientes", "cadastrados"], "sinonimos": {}, "filtros": []}
+    contar = {"nome": "c_hoje", "descricao": "Conta clientes cadastrados hoje", "entidade": "clientes", "operacao": "contar", "permissao": "clientes.ver", "saida": [], "parametros": {"de": {"tipo": "data", "obrigatorio": True}, "ate": {"tipo": "data", "obrigatorio": True}},
+              "exemplos": ["quantos clientes cadastrados hoje", "total de clientes cadastrados hoje", "numero de clientes cadastrados hoje"], "palavras_chave": ["clientes", "cadastrados"], "sinonimos": {},
+              "filtros": [{"campo": "criado_em", "op": "maior_igual", "parametro": "de"}, {"campo": "criado_em", "op": "menor_igual", "parametro": "ate"}]}
     monkeypatch.setattr(main, "provedor_llm", object())
     q = "você consegue me listar os NOMES dos clientes que foram cadastrados hoje?"
     r = main._agente(q, [], main.PerguntaIn(pergunta=q, catalogo=[contar]))
@@ -359,3 +361,64 @@ def test_instrucoes_mandam_o_o_que_foi_pago_hoje_para_dados_e_a_data_usada_para_
     from app import llm
     assert "o que foi pago" in llm.INSTRUCOES_AGENTE and "NÃO é dúvida" in llm.INSTRUCOES_AGENTE
     assert "qual data foi usada" in llm.INSTRUCOES_DADOS
+
+
+# --- cobertura: a consulta tem que filtrar TUDO o que a pergunta restringe ---
+def _spec_pagamentos(completa: bool):
+    spec = {"nome": "pagamentos_por_forma", "descricao": "Conta pagamentos por forma", "entidade": "pagamentos", "operacao": "contar", "permissao": "financeiro.ver", "saida": [],
+            "exemplos": ["quantos pagamentos no pix", "quantos pagamentos no cartão", "total de pagamentos no boleto"], "palavras_chave": ["pagamentos", "orcamentos", "pagos"], "sinonimos": {},
+            "parametros": {"forma": {"tipo": "enum", "valores": ["pix", "cartao", "boleto", "dinheiro"], "obrigatorio": True}},
+            "filtros": [{"campo": "forma", "op": "igual", "parametro": "forma"}]}
+    if completa:
+        spec["parametros"].update(status={"tipo": "enum", "valores": ["pendente", "pago", "cancelado"], "obrigatorio": False}, de={"tipo": "data", "obrigatorio": False}, ate={"tipo": "data", "obrigatorio": False})
+        spec["filtros"] += [{"campo": "status", "op": "igual", "parametro": "status"}, {"campo": "pago_em", "op": "maior_igual", "parametro": "de"}, {"campo": "pago_em", "op": "menor_igual", "parametro": "ate"}]
+        spec["exemplos"] += ["quantos orçamentos foram pagos no cartão essa semana?"]
+    return spec
+
+
+def test_consulta_que_nao_filtra_o_periodo_nao_devolve_o_total_geral(monkeypatch):
+    from app import main
+    monkeypatch.setattr(main, "provedor_llm", None)
+    q = "quantos orçamentos foram pagos no cartão essa semana?"
+    r = main._agente(q, [], main.PerguntaIn(pergunta=q, hoje="2026-11-27", catalogo=[_spec_pagamentos(False)]))
+    assert r["encontrou"] is False and not r.get("consultas")
+    assert "período" in r["resposta"] and "Registrei" in r["resposta"]  # vira oportunidade de proposta dos Agents
+    # sem restrição que falte, a mesma consulta responde
+    r = main._agente("quantos pagamentos no cartão?", [], main.PerguntaIn(pergunta="quantos pagamentos no cartão?", hoje="2026-11-27", catalogo=[_spec_pagamentos(False)]))
+    assert r.get("consultas")
+
+
+def test_consulta_completa_responde_e_o_texto_diz_o_que_foi_filtrado(monkeypatch):
+    from app import ferramentas, main
+    monkeypatch.setattr(main, "provedor_llm", None)
+    q = "quantos orçamentos foram pagos no cartão essa semana?"
+    spec = _spec_pagamentos(True)
+    r = main._agente(q, [], main.PerguntaIn(pergunta=q, hoje="2026-11-27", catalogo=[spec]))
+    params = r["consultas"][0]["args"]["params"]
+    assert params["forma"] == "cartao" and params["status"] == "pago" and params["de"] == "2026-11-23" and params["ate"] == "2026-11-27"
+    resultado = [{"nome": ferramentas.CATALOGO, "args": {"nome": spec["nome"], "params": params}, "resultado": {"total": 5}}]
+    r2 = main._agente(q, [], main.PerguntaIn(pergunta=q, hoje="2026-11-27", catalogo=[spec], resultados=resultado))
+    assert "forma: cartão" in r2["resposta"] and "23/11/2026 a 27/11/2026" in r2["resposta"] and "5" in r2["resposta"]
+
+
+def test_texto_falado_precisa_citar_os_filtros(monkeypatch):
+    from evolucao import cobertura
+    spec, params = _spec_pagamentos(True), {"forma": "cartao", "de": "2026-11-23", "ate": "2026-11-27"}
+    assert cobertura.texto_cita_filtros("Foram 5 pagos no cartão, de 23 a 27/11.", spec, params)
+    assert not cobertura.texto_cita_filtros("Foram 5 pagamentos no cartão.", spec, params)  # esqueceu o período
+
+
+def test_modelo_que_esquece_o_periodo_nao_responde_com_total_geral(monkeypatch):
+    from evolucao import cobertura
+    q = "quantos clientes foram cadastrados hoje?"
+    assert cobertura.periodo_perdido(q, [{"nome": "consultar_clientes", "args": {}}], "2026-11-27")
+    assert not cobertura.periodo_perdido(q, [{"nome": "consultar_clientes", "args": {"criado_de": "2026-11-27", "criado_ate": "2026-11-27"}}], "2026-11-27")
+    assert not cobertura.periodo_perdido("quantos clientes tenho?", [{"nome": "consultar_clientes", "args": {}}], "2026-11-27")
+
+
+def test_c19_exemplo_com_restricao_sem_parametro_e_bloqueado():
+    from evolucao import checagens
+    ruim = _spec_pagamentos(False)
+    ruim["exemplos"] = [*ruim["exemplos"], "quantos orçamentos foram pagos no cartão essa semana?"]
+    assert [a for a in checagens.checar_spec(ruim) if a["codigo"] == "C19" and a["gravidade"] == "bloqueio"]
+    assert not [a for a in checagens.checar_spec(_spec_pagamentos(True)) if a["codigo"] == "C19"]

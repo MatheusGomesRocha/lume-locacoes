@@ -24,6 +24,7 @@ from app.busca import BaseConhecimento, Contexto, Resultado, pede_dados_do_siste
 from app.semantica import NOTA_LEXICAL_CONFIANTE, criar_indice_do_ambiente, vencedor_confiavel
 from evolucao import checagens
 from evolucao.agentes import normalizar_spec
+from evolucao import cobertura
 from evolucao.consulta import buscar_consulta, extrair_parametros, tipo_da_pergunta
 from evolucao.esquema import ESQUEMA
 from evolucao.pipeline import gerar_relatorios
@@ -213,12 +214,13 @@ def _faltando(spec: dict, params: dict) -> list[str]:
     return [n for n, d in (spec.get("parametros") or {}).items() if d.get("obrigatorio") and n not in params]
 
 
-def texto_do_catalogo(spec: dict, resultado: Any) -> str:
+def texto_do_catalogo(spec: dict, resultado: Any, params: dict | None = None) -> str:
     """Resposta montada por código (sem modelo): o número é o que a consulta devolveu, nada inventado."""
     if not isinstance(resultado, dict) or "erro" in resultado:
         return str((resultado or {}).get("erro", "Não consegui consultar agora.")).capitalize() + "." if isinstance(resultado, dict) else "Não consegui consultar agora."
     rotulo = ESQUEMA.get(spec.get("entidade"), {}).get("rotulo", "registros").lower()
-    partes = [f"Encontrei {resultado.get('total', 0)} em {rotulo}."]
+    filtros = cobertura.filtros_aplicados(spec, params or {})
+    partes = [f"Encontrei {resultado.get('total', 0)} em {rotulo}" + (f" ({'; '.join(filtros)})" if filtros else "") + "."]
     if "soma" in resultado:
         partes.append(f"Soma: {str(resultado['soma']).replace('.', ',')}.")
     for linha in resultado.get("linhas", [])[:15]:
@@ -250,11 +252,12 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
     resultados = ferramentas.validar_resultados(dados.resultados)
     if resultados and all(r["nome"] == ferramentas.CATALOGO for r in resultados):
         por_nome = {s["nome"]: s for s in specs_validas(dados.catalogo)}
-        base = "\n\n".join(texto_do_catalogo(por_nome.get(r["args"]["nome"], {}), r["resultado"]) for r in resultados)
+        base = "\n\n".join(texto_do_catalogo(por_nome.get(r["args"]["nome"], {}), r["resultado"], r["args"].get("params")) for r in resultados)
         # O número vem do código; o modelo só põe em palavras, no tom de quem perguntou. Se ele inventar número ou falhar, vale o texto de código.
-        lidos = [{"nome": por_nome.get(r["args"]["nome"], {}).get("descricao", "consulta"), "args": r["args"].get("params", {}), "resultado": r["resultado"]} for r in resultados]
+        lidos = [{"nome": por_nome.get(r["args"]["nome"], {}).get("descricao", "consulta"), "args": {**r["args"].get("params", {}), "filtros_aplicados": cobertura.filtros_aplicados(por_nome.get(r["args"]["nome"], {}), r["args"].get("params", {}))}, "resultado": r["resultado"]} for r in resultados]
         falado = None if any(isinstance(r["resultado"], dict) and "erro" in r["resultado"] for r in resultados) else redigir_com_dados(provedor_llm, limitador_llm, pergunta, historico, lidos, dados.hoje)
-        if falado and texto_confere_com_dados(falado, lidos, pergunta, dados.hoje):
+        citou = falado and all(cobertura.texto_cita_filtros(falado, por_nome.get(r["args"]["nome"], {}), r["args"].get("params", {})) for r in resultados)
+        if falado and citou and texto_confere_com_dados(falado, lidos, pergunta, dados.hoje):
             return _resposta_agente(falado, gerada_por_llm=True)
         return _resposta_agente(base, gerada_por_llm=False)
     if resultados:  # segunda volta: o front já consultou, falta redigir a resposta
@@ -271,7 +274,11 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
         return _resposta_agente(TEXTO_USUARIO_DO_SISTEMA)  # antes do modelo: não depende dele nem gasta cota
     if dados.catalogo and not ferramentas.pede_acao(pergunta):  # uma consulta aprovada pelo Master tem prioridade sobre perguntar ao modelo
         specs = specs_validas(dados.catalogo)
-        spec = buscar_consulta(pergunta, specs)
+        # A consulta tem que filtrar TUDO o que a pergunta restringe (período, forma, situação). Se só uma consulta parecida existe e ela não
+        # filtra algum pedaço, não se entrega o total geral: diz o que falta e a pergunta vira oportunidade de proposta dos Agents.
+        spec = buscar_consulta(pergunta, [s for s in specs if not cobertura.nao_cobertas(pergunta, s, dados.hoje)])
+        if not spec and (incompleta := buscar_consulta(pergunta, specs, sem_periodo=True)):
+            return _resposta_agente(cobertura.texto_da_lacuna(incompleta, cobertura.nao_cobertas(pergunta, incompleta, dados.hoje)), encontrou=False, gerada_por_llm=False)
         if spec:
             params = extrair_parametros(pergunta, spec, dados.hoje)
             # Parâmetro de texto (ex.: categoria) o servidor não consegue ler da pergunta: ele não tem os dados. Vai a pergunta junto
@@ -306,6 +313,8 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
         cache.guardar(chave, decisao)  # a decisão não carrega dados do sistema, só qual ferramenta usar
     if decisao.chamadas:
         consultas = [c for c in decisao.chamadas if ferramentas.eh_consulta(c["nome"])]
+        if consultas and cobertura.periodo_perdido(pergunta, consultas, dados.hoje):  # o modelo esqueceu o período: o número seria o total geral
+            return _resposta_agente("Não consegui aplicar o período que você pediu e prefiro não te passar um número errado. Registrei a sua pergunta para a equipe.", encontrou=False, em_cache=em_cache, gerada_por_llm=False)
         if consultas:  # consultar e agir no mesmo pedido não é suportado: a consulta vem primeiro
             return _resposta_agente("", consultas=consultas, em_cache=em_cache)
         acoes = decisao.chamadas[:1]  # uma ação por vez: cada uma tem a sua confirmação

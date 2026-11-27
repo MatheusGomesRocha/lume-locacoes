@@ -130,9 +130,9 @@
       "construtor"
     ],
     "gatilhos": [
-      "\\b(pix|cart\\w+|boleto|dinheiro|aprovad\\w+|pendente|cancelad\\w+|rascunho|enviad\\w+|finalizad\\w+|ativ\\w+|inativ\\w+|atrasad\\w+|pag[oa]s?)\\b"
+      "\\b(pix|cart\\w+|boleto|dinheiro|aprovad\\w+|pendente|cancelad\\w+|rascunho|enviad\\w+|finalizad\\w+|ativ\\w+|inativ\\w+|atrasad\\w+|pag[oa]s?|semana|hoje|ontem|mes)\\b"
     ],
-    "fazer": "Quando a pergunta cita um VALOR que pode mudar (forma de pagamento, status, perfil, categoria, ativo/inativo), esse valor é um PARÂMETRO (enum com TODOS os valores do campo), nunca um filtro fixo. O nome da consulta é geral (cobrancas_por_forma), não cita o valor (nada de _no_pix). Os exemplos citam pelo menos DOIS valores diferentes (Pix e cartão), para a busca achar a consulta com qualquer um.",
+    "fazer": "Quando a pergunta cita um VALOR que pode mudar (forma de pagamento, status, perfil, categoria, ativo/inativo), esse valor é um PARÂMETRO (enum com TODOS os valores do campo), nunca um filtro fixo. O nome da consulta é geral (cobrancas_por_forma), não cita o valor (nada de _no_pix). Os exemplos citam pelo menos DOIS valores diferentes (Pix e cartão), para a busca achar a consulta com qualquer um. TODA restrição da pergunta vira parâmetro: período (hoje, essa semana, últimos N dias) = parâmetros de data de/até no campo de data certo; situação e forma = enum. Uma pergunta como 'pagos no cartão essa semana' precisa de forma, situação e período; se a consulta não filtra algum, ela devolveria o total geral.",
     "evitar": "filtro com valor fixo (op igual + valor) e nome ou palavras_chave presos a um valor ('pagos_no_pix'): a pergunta do cartão pediria outra consulta.",
     "exemplo": "'Quantos orçamentos foram pagos no Pix?' -> pagamentos, contar, parâmetro forma (enum pix, cartao, boleto, dinheiro) e status (enum), nome cobrancas_por_forma_e_situacao, exemplos com Pix e com cartão.",
     "pergunta_de_exemplo": "Quantos orçamentos foram pagos no Pix?"

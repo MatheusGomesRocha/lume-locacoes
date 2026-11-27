@@ -340,6 +340,26 @@
           "teste": "tests/test_api.py::test_pergunta_por_forma_de_pagamento_sem_consulta_aprovada_nao_vira_total_geral"
         }
       }
+    },
+    {
+      "id": "E18-filtro-da-pergunta-ignorado",
+      "titulo": "“Quantos orçamentos foram pagos no cartão essa semana?” respondeu “5 no cartão”: a consulta não filtrava o período (nem a situação) e a resposta passou o total geral",
+      "visto_em": "chat de 27/11 (12:58)",
+      "status": "fechado",
+      "camadas": {
+        "codigo": {
+          "teste": "tests/test_catalogo_chat.py::test_consulta_que_nao_filtra_o_periodo_nao_devolve_o_total_geral"
+        },
+        "checagem_fixa": {
+          "checagem": "C19"
+        },
+        "licao": {
+          "licao": "L10-valor-que-varia-e-parametro"
+        },
+        "matriz": {
+          "matriz": "cobertura dos exemplos"
+        }
+      }
     }
   ]
 }

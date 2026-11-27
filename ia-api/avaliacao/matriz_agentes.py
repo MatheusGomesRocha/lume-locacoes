@@ -137,6 +137,20 @@ def casos() -> list[tuple[str, callable]]:
         return None
     saida.append(("valor que varia vira parâmetro (C16/C17)", dinamico))
 
+    # C19: tudo o que a pergunta restringe (período, forma, situação) precisa de parâmetro na consulta
+    def cobertura_dos_exemplos():
+        base = {"nome": "pagamentos_por_forma", "descricao": "d", "entidade": "pagamentos", "operacao": "contar", "permissao": "financeiro.ver", "saida": [],
+                "exemplos": ["quantos pagamentos no pix?", "quantos pagamentos no cartão?"], "palavras_chave": ["pagamentos", "orcamentos", "pagos"], "sinonimos": {},
+                "parametros": {"forma": {"tipo": "enum", "valores": ["pix", "cartao", "boleto"], "obrigatorio": True}},
+                "filtros": [{"campo": "forma", "op": "igual", "parametro": "forma"}]}
+        ruim = {**base, "exemplos": [*base["exemplos"], "quantos pagamentos no cartão essa semana?"]}
+        if not [a for a in checagens.checar_spec(ruim) if a["codigo"] == "C19"]:
+            return "C19 não pegou exemplo com período que a consulta não filtra"
+        if [a for a in checagens.checar_spec(base) if a["codigo"] == "C19"]:
+            return "C19 barrou consulta que cobre tudo o que os exemplos pedem"
+        return None
+    saida.append(("cobertura dos exemplos (C19)", cobertura_dos_exemplos))
+
     # C15: quem pede nomes não pode receber contagem (e o contrário)
     for e, d in ESQUEMA.items():
         def tipo_certo(e=e, d=d):
