@@ -155,3 +155,14 @@ def test_agents_nao_recebem_o_que_a_consulta_aprovada_ja_responde(cliente, monke
     r = cliente.post("/evolucao/propor", json=corpo).json()
     assert enviadas == [["quantos clientes são de Sobral?"]]
     assert len(r["ignoradas"]) == 1 and "clientes_cadastrados_recentemente" in r["ignoradas"][0]["motivo"]
+
+
+def test_proximos_dias_vai_de_hoje_ate_hoje_mais_n():
+    from evolucao.consulta import _janela, extrair_parametros
+    assert _janela("2026-11-26", 0, "proximos_dias") == ("2026-11-26", "2026-11-26")
+    assert _janela("2026-11-26", 7, "proximos_dias") == ("2026-11-26", "2026-12-03")
+    assert _janela("2026-11-26", 7) == ("2026-11-19", "2026-11-26")
+    spec = {"parametros": {"dias": {"tipo": "numero"}}, "filtros": [{"campo": "data_devolucao", "op": "proximos_dias", "parametro": "dias"}]}
+    assert extrair_parametros("quais orçamentos devolvem nos próximos 15 dias?", spec) == {"dias": 15}
+    assert extrair_parametros("o que devolve hoje?", spec) == {"dias": 0}
+    assert extrair_parametros("devoluções na próxima semana", spec) == {"dias": 7}

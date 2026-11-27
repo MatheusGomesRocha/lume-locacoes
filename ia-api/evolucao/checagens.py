@@ -6,7 +6,7 @@ Quando o Tester (Agent 3) descobrir um tipo de falha que vale para toda consulta
 import re
 
 from app import ferramentas
-from evolucao.consulta import CHAVES_DA_SPEC, OPERACOES, OPS_POR_TIPO, buscar_consulta, pontuar
+from evolucao.consulta import CHAVES_DA_SPEC, JANELAS, OPERACOES, OPS_POR_TIPO, buscar_consulta, pontuar
 from evolucao.esquema import ESQUEMA, PERMISSOES_VALIDAS, TIPOS
 
 NOME_OK = re.compile(r"^[a-z][a-z0-9_]{2,59}$")
@@ -122,8 +122,8 @@ def checar_spec(spec: dict, proposta: dict | None = None, catalogo: list[dict] |
             d = params.get(fl["parametro"])
             if d is None:
                 f.append(_a("C09", "bloqueio", f"o filtro usa o parâmetro {fl['parametro']}, que não foi declarado"))
-            elif d.get("tipo") != ("numero" if fl.get("op") == "ultimos_dias" else c["tipo"]):
-                esperado_tipo = "numero (a quantidade de dias)" if fl.get("op") == "ultimos_dias" else c["tipo"]
+            elif d.get("tipo") != ("numero" if fl.get("op") in JANELAS else c["tipo"]):
+                esperado_tipo = "numero (a quantidade de dias)" if fl.get("op") in JANELAS else c["tipo"]
                 f.append(_a("C09", "bloqueio", f"o parâmetro {fl['parametro']} é {d.get('tipo')} mas o filtro de {fl['campo']} pede {esperado_tipo}"))
             elif c["tipo"] == "enum" and not set(d.get("valores", [])) <= set(c["valores"]):
                 f.append(_a("C09", "bloqueio", f"o parâmetro {fl['parametro']} aceita valores que o campo não tem"))

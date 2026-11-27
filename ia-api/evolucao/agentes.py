@@ -12,7 +12,8 @@ from datetime import date, datetime, timedelta
 
 from app import ferramentas
 from evolucao import checagens
-from evolucao.consulta import CHAVES_DA_SPEC, ErroConsulta, OPERACOES, buscar_consulta, executar, extrair_parametros
+from evolucao import licoes
+from evolucao.consulta import CHAVES_DA_SPEC, JANELAS, ErroConsulta, OPERACOES, buscar_consulta, executar, extrair_parametros
 from evolucao.esquema import DADOS_TESTE, ESQUEMA, HOJE_TESTE, REGRAS_DE_MODULO, SESSOES_TESTE, TIPOS
 
 
@@ -83,7 +84,7 @@ def _ferramentas_existentes(catalogo: list[dict] | None) -> list[dict]:
 # Agent 1: Analista
 # =============================================================================================
 SISTEMA_ANALISTA = (
-    "Você é o ANALISTA do sistema Lume Locações. Recebe perguntas que os usuários fizeram à assistente e ficaram SEM RESPOSTA. "
+    "Você é o ANALISTA do sistema Lume Locações. LICOES são erros que já aconteceram: siga-as. Recebe perguntas que os usuários fizeram à assistente e ficaram SEM RESPOSTA. "
     "Para cada tema (agrupe perguntas parecidas) decida, entre: "
     "criar_consulta (é um pedido de DADO: contar, listar ou somar, que dá para responder SÓ LENDO as entidades do ESQUEMA); "
     "faq (é uma dúvida de COMO usar o sistema: não é dado, o Master responde no FAQ); "
@@ -92,6 +93,8 @@ SISTEMA_ANALISTA = (
     "No motivo de nao_suportado diga só o que o ESQUEMA não cobre; NUNCA afirme que o sistema não tem uma tela ou entidade: o ESQUEMA é só a parte do sistema que as consultas podem ler. "
     "Pergunta sobre um PERÍODO RELATIVO ('últimos 7 dias', 'esta semana', 'hoje') sobre um campo de data (ex.: clientes cadastrados = campo criado_em): "
     "use o filtro op=ultimos_dias, com um parâmetro tipo numero (a quantidade de dias, obrigatório); a janela vai de HOJE-N até HOJE, inclusive, e N=0 é só hoje. "
+    "Para o FUTURO ('hoje', 'próximos 7 dias', 'vence esta semana') use op=proximos_dias: a janela vai de HOJE até HOJE+N, inclusive, e N=0 é só hoje. "
+    "Pergunta sobre 'hoje' em data de devolução, retirada ou vencimento é proximos_dias com N=0 (nunca igual com um parâmetro numérico). "
     "Nas expectativas desse caso, HOJE é o valor de HOJE_NOS_TESTES. "
     "O NOME de um parâmetro é uma palavra que diz o que ele é (dias, cidade, papel), NUNCA o valor que aparece na pergunta: "
     "em 'últimos 7 dias' o parâmetro se chama dias e o 7 é só o valor de exemplo (nas expectativas: params {\"dias\":7}). "
@@ -136,7 +139,7 @@ def consertar_janela(filtros: list[dict], parametros: dict) -> tuple[list[dict],
     trocados: dict[str, str] = {}
     avisos: list[str] = []
     for f in filtros:
-        if f.get("op") != "ultimos_dias":
+        if f.get("op") not in JANELAS:
             continue
         if "parametro" not in f:
             if isinstance(f.get("valor"), (int, float)) and not isinstance(f.get("valor"), bool):
@@ -188,7 +191,8 @@ class Analista:
         """`perguntas`: [{pergunta, vezes, tipo}] (já agrupadas, mais frequentes primeiro)."""
         validas = {q["pergunta"] for q in perguntas}
         usuario = json.dumps({"ESQUEMA": resumo_do_esquema(), "FERRAMENTAS_EXISTENTES": _ferramentas_existentes(catalogo), "DADOS_DE_TESTE": DADOS_TESTE, "HOJE_NOS_TESTES": HOJE_TESTE,
-                              "PERGUNTAS_SEM_RESPOSTA": [{"pergunta": q["pergunta"], "vezes": q["vezes"]} for q in perguntas]}, ensure_ascii=False)
+                              "PERGUNTAS_SEM_RESPOSTA": [{"pergunta": q["pergunta"], "vezes": q["vezes"]} for q in perguntas],
+                              "LICOES": licoes.selecionar("analista", " ".join(q["pergunta"] for q in perguntas))}, ensure_ascii=False)
         saida = chamar_json(self.provedor, self.limitador, SISTEMA_ANALISTA, usuario)
         brutas = saida.get("propostas")
         if not isinstance(brutas, list):
@@ -206,7 +210,7 @@ class Analista:
 # Agent 2: Construtor
 # =============================================================================================
 SISTEMA_CONSTRUTOR = (
-    "Você é o CONSTRUTOR do sistema Lume Locações. Recebe uma PROPOSTA aprovada para análise e cria a CONSULTA que a implementa, "
+    "Você é o CONSTRUTOR do sistema Lume Locações. LICOES são erros que já aconteceram: siga-as. Recebe uma PROPOSTA aprovada para análise e cria a CONSULTA que a implementa, "
     "como ESPECIFICAÇÃO (dados, nunca código): "
     "{\"spec\":{\"nome\":snake_case único,\"descricao\":até 200 letras,\"entidade\":str,\"operacao\":contar|listar|somar,\"campo_soma\":str|null,"
     "\"saida\":[campos, só em listar],\"ordenar_por\":str|null,\"limite\":1 a 50 (só listar),"
@@ -256,7 +260,8 @@ class Construtor:
         self.provedor, self.limitador = provedor, limitador
 
     def construir(self, proposta: dict, catalogo: list[dict] | None = None) -> dict:
-        usuario = json.dumps({"ESQUEMA": resumo_do_esquema(), "NOMES_JA_USADOS": sorted(checagens.nomes_ja_usados(catalogo)), "PROPOSTA": proposta}, ensure_ascii=False)
+        usuario = json.dumps({"ESQUEMA": resumo_do_esquema(), "NOMES_JA_USADOS": sorted(checagens.nomes_ja_usados(catalogo)), "PROPOSTA": proposta,
+                              "LICOES": licoes.selecionar("construtor", json.dumps(proposta, ensure_ascii=False))}, ensure_ascii=False)
         saida = chamar_json(self.provedor, self.limitador, SISTEMA_CONSTRUTOR, usuario)
         spec, descartadas = normalizar_spec(saida.get("spec"))
         return {"spec": spec, "regras_declaradas": _lista_s(saida.get("regras_seguidas"), 12, 200), "observacoes": _s(saida.get("observacoes"), 400), "descartadas": descartadas}
@@ -328,7 +333,7 @@ def casos_base(spec: dict) -> list[dict]:
 def _valor_impossivel(spec: dict | None, params: dict) -> bool:
     """O caso usa, num parâmetro de lista, um valor que não está na lista? Aí a única resposta certa da consulta é recusar."""
     defs = (spec or {}).get("parametros") or {}
-    janelas = {f.get("parametro") for f in (spec or {}).get("filtros", []) if f.get("op") == "ultimos_dias"}
+    janelas = {f.get("parametro") for f in (spec or {}).get("filtros", []) if f.get("op") in JANELAS}
     # a quantidade de dias da janela tem que ser inteiro de 0 a 3650: -1, 1.5, "sete" ou 9999 a consulta recusa de propósito
     fora = lambda v: isinstance(v, bool) or not isinstance(v, int) or not 0 <= v <= 3650  # noqa: E731
     return any((d.get("tipo") == "enum" and n in params and params[n] not in d.get("valores", [])) or (n in janelas and n in params and fora(params[n])) for n, d in defs.items())
@@ -363,14 +368,14 @@ FAMILIA_EXECUCAO = {"execucao", "permissao", "parametro", "vazamento"}
 def _total_da_janela(spec: dict, params: dict) -> int | None:
     """Contagem de "nos últimos N dias" feita só com datas, sem usar o executor (fonte independente). None se não for esse formato."""
     fs = spec.get("filtros") or []
-    if spec.get("operacao") != "contar" or len(fs) != 1 or fs[0].get("op") != "ultimos_dias" or spec.get("entidade") not in DADOS_TESTE:
+    if spec.get("operacao") != "contar" or len(fs) != 1 or fs[0].get("op") not in JANELAS or spec.get("entidade") not in DADOS_TESTE:
         return None
     n = params.get(fs[0].get("parametro"))
     if isinstance(n, bool) or not isinstance(n, int) or not 0 <= n <= 3650:
         return None
     hoje = date.fromisoformat(HOJE_TESTE)
-    de = hoje - timedelta(days=n)
-    return sum(1 for l in DADOS_TESTE[spec["entidade"]] if l.get(fs[0]["campo"]) and de <= date.fromisoformat(str(l[fs[0]["campo"]])[:10]) <= hoje)
+    de, ate = (hoje, hoje + timedelta(days=n)) if fs[0]["op"] == "proximos_dias" else (hoje - timedelta(days=n), hoje)
+    return sum(1 for l in DADOS_TESTE[spec["entidade"]] if l.get(fs[0]["campo"]) and de <= date.fromisoformat(str(l[fs[0]["campo"]])[:10]) <= ate)
 
 
 def refazer_totais_de_janela(spec: dict, casos: list[dict]) -> list[str]:

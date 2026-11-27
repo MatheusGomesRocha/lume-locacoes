@@ -1,7 +1,7 @@
 """O relatório que o Master lê antes de aprovar ou reprovar: tudo que foi feito, em português, e o que NÃO foi provado."""
 from evolucao.esquema import ESQUEMA
 
-ROTULO_OP = {"igual": "é igual a", "diferente": "é diferente de", "contem": "contém a palavra", "maior_igual": "é maior ou igual a", "menor_igual": "é menor ou igual a", "ultimos_dias": "foi nos últimos (dias)"}
+ROTULO_OP = {"igual": "é igual a", "diferente": "é diferente de", "contem": "contém a palavra", "maior_igual": "é maior ou igual a", "menor_igual": "é menor ou igual a", "ultimos_dias": "foi nos últimos (dias)", "proximos_dias": "será nos próximos (dias)"}
 VEREDITO = {"aprovar_recomendado": "✅ Recomendo APROVAR", "revisar_com_atencao": "⚠️ Pode aprovar, mas leia os avisos", "reprovar_recomendado": "⛔ Recomendo REPROVAR"}
 REGRAS_VERIFICADAS = [
     ("C01", "Nome válido e que não colide com outra ferramenta"), ("C02", "Só leitura (contar, listar ou somar)"),

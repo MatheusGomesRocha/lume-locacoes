@@ -17,7 +17,7 @@ OPERACOES = ("contar", "listar", "somar")
 OPS_POR_TIPO = {
     "texto": {"igual", "diferente", "contem"},
     "numero": {"igual", "diferente", "maior_igual", "menor_igual"},
-    "data": {"igual", "maior_igual", "menor_igual", "ultimos_dias"},
+    "data": {"igual", "maior_igual", "menor_igual", "ultimos_dias", "proximos_dias"},
     "bool": {"igual"},
     "enum": {"igual", "diferente"},
 }
@@ -95,20 +95,25 @@ def validar_parametros(spec: dict, params: dict) -> dict:
 MAX_DIAS = 3650
 
 
-def _janela(hoje, dias) -> tuple[str, str]:
-    """"Nos últimos N dias" = de (hoje - N) até hoje, inclusive. N = 0 é só hoje."""
+JANELAS = {"ultimos_dias", "proximos_dias"}
+
+
+def _janela(hoje, dias, op: str = "ultimos_dias") -> tuple[str, str]:
+    """"Nos últimos N dias" = de (hoje - N) até hoje, inclusive; "nos próximos N dias" = de hoje até (hoje + N), inclusive. N = 0 é só hoje."""
     try:
         h = date.fromisoformat(str(hoje))
     except ValueError:
         raise ErroConsulta("falta a data de hoje") from None
     if isinstance(dias, bool) or not isinstance(dias, (int, float)) or dias != int(dias) or not 0 <= dias <= MAX_DIAS:
         raise ParametroInvalido(f"quantidade de dias inválida (0 a {MAX_DIAS})")
+    if op == "proximos_dias":
+        return h.isoformat(), (h + timedelta(days=int(dias))).isoformat()
     return (h - timedelta(days=int(dias))).isoformat(), h.isoformat()
 
 
 def _confere(op: str, atual, esperado, tipo: str, hoje=None) -> bool:
-    if op == "ultimos_dias":
-        de, ate = _janela(hoje, esperado)
+    if op in JANELAS:
+        de, ate = _janela(hoje, esperado, op)
         return atual is not None and de <= str(atual)[:10] <= ate
     if op == "contem":
         return atual is not None and casa_palavras(esperado, atual)
@@ -157,7 +162,7 @@ _VAZIAS = {"o", "a", "os", "as", "um", "uma", "de", "do", "da", "dos", "das", "n
            "que", "e", "ou", "para", "pra", "por", "tipo", "tenho", "temos", "ha", "tem", "quantos", "quantas", "qual", "quais", "quanto", "ver", "mostre", "liste"}
 
 
-_PERIODO = re.compile(r"(?:ultim[oa]s?\s+)?\d{1,4}\s*(?:dias?|semanas?|mes(?:es)?)\b|\bultim[oa]s?\s+(?:dias|semanas?|mes(?:es)?)\b|\b(?:esta|essa|nesta|nessa)\s+semana\b|\bhoje\b")
+_PERIODO = re.compile(r"(?:(?:ultim|proxim)[oa]s?\s+)?\d{1,4}\s*(?:dias?|semanas?|mes(?:es)?)\b|\b(?:ultim|proxim)[oa]s?\s+(?:dias|semanas?|mes(?:es)?)\b|\b(?:esta|essa|nesta|nessa)\s+semana\b|\bhoje\b")
 
 
 def _termos(t) -> set[str]:
@@ -213,9 +218,9 @@ def _dias_da_pergunta(pergunta: str) -> int | None:
     if m:
         n = int(m.group(1))
         return min(MAX_DIAS, n * (7 if m.group(2).startswith("semana") else 30 if m.group(2).startswith("mes") else 1))
-    if re.search(r"\b(ultima|ultimas|passada)\s+semana\b", t):
+    if re.search(r"\b(ultima|ultimas|passada|proxima|proximas)\s+semana\b", t):
         return 7
-    if re.search(r"\b(ultimo|ultimos|passado)\s+mes\b", t):
+    if re.search(r"\b(ultimo|ultimos|passado|proximo|proximos)\s+mes\b", t):
         return 30
     if re.search(r"\bhoje\b", t):
         return 0
@@ -227,7 +232,7 @@ def extrair_parametros(pergunta: str, spec: dict) -> dict:
     achados = {}
     q = set(palavras(pergunta))
     dias_da_pergunta = _dias_da_pergunta(pergunta)
-    por_janela = {f.get("parametro") for f in spec.get("filtros", []) if f.get("op") == "ultimos_dias"}
+    por_janela = {f.get("parametro") for f in spec.get("filtros", []) if f.get("op") in JANELAS}
     for nome, d in (spec.get("parametros") or {}).items():
         if d.get("tipo") == "numero" and nome in por_janela and dias_da_pergunta is not None:
             achados[nome] = dias_da_pergunta

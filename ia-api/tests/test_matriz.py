@@ -23,3 +23,17 @@ def test_campo_novo_no_esquema_tira_a_pergunta_da_lista_de_impossiveis(monkeypat
     novo["usuarios"]["campos"]["cidade"] = {"tipo": "texto", "rotulo": "Cidade", "valores": [], "nivel": "normal"}
     monkeypatch.setattr(impossivel, "ESQUEMA", novo)
     assert "usuarios" in impossivel.quem_guarda("localizacao")
+
+
+def test_matriz_dos_agentes_passa_inteira():
+    from avaliacao import matriz_agentes
+    res = matriz_agentes.rodar()
+    assert len(res) > 40
+    assert [f"{r['caso']}: {r['erro']}" for r in res if r["erro"]] == []
+
+
+def test_licoes_so_vao_para_analista_e_construtor_e_cabem_no_prompt():
+    from evolucao import licoes
+    todas = licoes.carregar()
+    assert all(set(l["agentes"]) <= {"analista", "construtor"} for l in todas)
+    assert len(licoes.selecionar("construtor", "devolução retirada orçamento hoje último cadastrado")) <= licoes.MAXIMO_POR_PROMPT
