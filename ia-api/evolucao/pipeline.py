@@ -109,11 +109,25 @@ class Repositorio:
         return item
 
 
-def gerar_relatorios(provedor, limitador, perguntas: list[dict], catalogo: list[dict], proximo_id) -> list[dict]:
-    """Roda Agent 1 -> 2 -> 3 sem guardar nada: quem chama decide onde ficam os relatórios. `proximo_id(i)` dá o id do i-ésimo."""
+def consulta_equivalente(prop: dict, catalogo: list[dict]) -> dict | None:
+    """A consulta aprovada que já faz o que esta proposta pede (mesma entidade, operação, campos filtrados e, em listar, saída coberta)?"""
+    forma = lambda f: {(x.get("campo"), x.get("op")) for x in (f or [])}  # noqa: E731
+    for s in catalogo:
+        if (s.get("entidade") == prop.get("entidade") and s.get("operacao") == prop.get("operacao") and forma(s.get("filtros")) == forma(prop.get("filtros"))
+                and (s.get("campo_soma") or None) == (prop.get("campo_soma") or None) and set(prop.get("saida") or []) <= set(s.get("saida") or [])):
+            return s
+    return None
+
+
+def gerar_relatorios(provedor, limitador, perguntas: list[dict], catalogo: list[dict], proximo_id, ignoradas: list[dict] | None = None) -> list[dict]:
+    """Roda Agent 1 -> 2 -> 3 sem guardar nada: quem chama decide onde ficam os relatórios. `proximo_id(i)` dá o id do i-ésimo.
+    Proposta que repete uma consulta já aprovada (mesma forma, ou o mesmo nome) não vira relatório: vai para `ignoradas`."""
     relatorios = []
     for i, prop in enumerate(Analista(provedor, limitador).propor(perguntas, catalogo)):
         id_ = proximo_id(i)
+        if prop["decisao"] == "criar_consulta" and (ja := consulta_equivalente(prop, catalogo)) and ignoradas is not None:
+            ignoradas.extend({"pergunta": q, "motivo": f"já respondida pela consulta aprovada “{ja['nome']}”"} for q in prop.get("perguntas", []))
+            continue
         pacote = avaliacao = None
         barrada = checagens.checar_proposta(prop)
         if prop["decisao"] == "criar_consulta" and checagens.tem_bloqueio(barrada):  # proposta ruim não chega ao Construtor
@@ -121,6 +135,10 @@ def gerar_relatorios(provedor, limitador, perguntas: list[dict], catalogo: list[
         elif prop["decisao"] == "criar_consulta":
             try:
                 pacote = Construtor(provedor, limitador).construir(prop, catalogo)
+                nome = pacote["spec"].get("nome")
+                if ignoradas is not None and nome in checagens.nomes_ja_usados(catalogo):  # C01: o nome já é de uma consulta/ferramenta que existe
+                    ignoradas.extend({"pergunta": q, "motivo": f"já existe a consulta “{nome}”"} for q in prop.get("perguntas", []))
+                    continue
                 avaliacao = Tester(provedor, limitador).avaliar(prop, pacote, catalogo)
             except ErroAgente as e:
                 prop = {**prop, "decisao": "nao_suportado", "motivo": f"{prop.get('motivo', '')} (a construção falhou: {e})".strip()}

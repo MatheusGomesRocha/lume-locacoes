@@ -250,9 +250,58 @@ def _dias_da_pergunta(pergunta: str) -> int | None:
     return None
 
 
-def extrair_parametros(pergunta: str, spec: dict) -> dict:
-    """Preenche parâmetros enum citados na pergunta, por palavra inteira (valor, rótulo ou sinônimo)."""
+_DIA_E_MES = re.compile(r"\b(?:dia\s+|em\s+)?(\d{1,2})/(\d{1,2})(?:/(\d{4}))?\b")
+
+
+def periodo_da_pergunta(pergunta: str, hoje) -> tuple[str, str] | None:
+    """O período que a pergunta cita, como (de, ate) em AAAA-MM-DD: hoje, ontem, anteontem, esta semana (segunda até hoje), semana passada,
+    este mês, mês passado, "últimos N dias", "dia 15/11". Sem período claro, None (a Lumi pergunta). `hoje` vem do usuário/executor."""
+    try:
+        h = date.fromisoformat(str(hoje))
+    except ValueError:
+        return None
+    t = sem_acento(pergunta)
+    iso = lambda d: d.isoformat()  # noqa: E731
+    if re.search(r"\banteontem\b", t):
+        return iso(h - timedelta(days=2)), iso(h - timedelta(days=2))
+    if re.search(r"\bontem\b", t):
+        return iso(h - timedelta(days=1)), iso(h - timedelta(days=1))
+    m = _DIA_E_MES.search(t)
+    if m:
+        try:
+            d = date(int(m.group(3) or h.year), int(m.group(2)), int(m.group(1)))
+            return iso(d), iso(d)
+        except ValueError:
+            return None
+    if re.search(r"\bsemana\s+passada\b", t):
+        ini = h - timedelta(days=h.weekday() + 7)
+        return iso(ini), iso(ini + timedelta(days=6))
+    if re.search(r"\bmes\s+passado\b", t):
+        fim = h.replace(day=1) - timedelta(days=1)
+        return iso(fim.replace(day=1)), iso(fim)
+    if re.search(r"\b(esta|essa|nesta|nessa)\s+semana\b", t):
+        return iso(h - timedelta(days=h.weekday())), iso(h)
+    if re.search(r"\b(este|esse|neste|nesse)\s+mes\b", t):
+        return iso(h.replace(day=1)), iso(h)
+    n = _dias_da_pergunta(pergunta)
+    return (iso(h - timedelta(days=n)), iso(h)) if n is not None else None
+
+
+def extrair_parametros(pergunta: str, spec: dict, hoje=None) -> dict:
+    """Preenche parâmetros enum citados na pergunta, por palavra inteira (valor, rótulo ou sinônimo), os dias de uma janela e as
+    datas de um período (de/ate): "ontem" vira a data de ontem, "esta semana" vira segunda..hoje."""
     achados = {}
+    periodo = periodo_da_pergunta(pergunta, hoje) if hoje else None
+    if periodo:
+        for f in spec.get("filtros", []):
+            pr = (spec.get("parametros") or {}).get(f.get("parametro"), {})
+            if pr.get("tipo") == "data" and f.get("op") in ("maior_igual", "menor_igual", "igual"):
+                if f["op"] == "maior_igual":
+                    achados[f["parametro"]] = periodo[0]
+                elif f["op"] == "menor_igual":
+                    achados[f["parametro"]] = periodo[1]
+                elif periodo[0] == periodo[1]:
+                    achados[f["parametro"]] = periodo[0]
     q = set(palavras(pergunta))
     dias_da_pergunta = _dias_da_pergunta(pergunta)
     por_janela = {f.get("parametro") for f in spec.get("filtros", []) if f.get("op") in JANELAS}

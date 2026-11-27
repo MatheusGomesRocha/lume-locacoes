@@ -56,7 +56,7 @@ def test_evolucao_devolve_relatorios_com_ids_a_partir_do_numero(cliente, monkeyp
     monkeypatch.setattr(main, "provedor_llm", object())
     visto = {}
 
-    def falso(provedor, limitador, perguntas, catalogo, proximo_id):
+    def falso(provedor, limitador, perguntas, catalogo, proximo_id, ignoradas=None):
         visto["ids"] = [proximo_id(0), proximo_id(1)]
         visto["catalogo"] = catalogo
         return [{"id": proximo_id(0)}]
@@ -278,3 +278,56 @@ def test_seguimento_com_agradecimento_na_frente():
     assert parece_seguimento("valeu! e ontem, quantos foram?", h)
     assert parece_seguimento("ok, e quais os nomes deles?", h)
     assert not parece_seguimento("valeu, como criar um orçamento?", h)
+
+
+def test_periodo_da_pergunta_traduz_hoje_ontem_semana_mes():
+    from evolucao.consulta import periodo_da_pergunta as p
+    h = "2026-11-26"  # quinta-feira
+    assert p("quantos clientes foram cadastrados hoje?", h) == ("2026-11-26", "2026-11-26")
+    assert p("quantos clientes foram cadastrados ontem?", h) == ("2026-11-25", "2026-11-25")
+    assert p("e anteontem?", h) == ("2026-11-24", "2026-11-24")
+    assert p("cadastrados nessa semana", h) == ("2026-11-23", "2026-11-26")
+    assert p("cadastrados na semana passada", h) == ("2026-11-16", "2026-11-22")
+    assert p("cadastrados neste mês", h) == ("2026-11-01", "2026-11-26")
+    assert p("cadastrados no mês passado", h) == ("2026-10-01", "2026-10-31")
+    assert p("cadastrados nos últimos 15 dias", h) == ("2026-11-11", "2026-11-26")
+    assert p("cadastrados dia 15/11", h) == ("2026-11-15", "2026-11-15")
+    assert p("quantos clientes temos?", h) is None
+    assert p("hoje", "lixo") is None
+
+
+def test_consulta_por_periodo_recebe_as_datas_da_pergunta():
+    from evolucao.consulta import extrair_parametros
+    spec = {"nome": "clientes_cadastrados_periodo", "entidade": "clientes", "operacao": "contar", "parametros": {"de": {"tipo": "data", "obrigatorio": True}, "ate": {"tipo": "data", "obrigatorio": True}},
+            "filtros": [{"campo": "criado_em", "op": "maior_igual", "parametro": "de"}, {"campo": "criado_em", "op": "menor_igual", "parametro": "ate"}]}
+    assert extrair_parametros("quantos clientes foram cadastrados ontem?", spec, "2026-11-26") == {"de": "2026-11-25", "ate": "2026-11-25"}
+    assert extrair_parametros("quantos clientes foram cadastrados esta semana?", spec, "2026-11-26") == {"de": "2026-11-23", "ate": "2026-11-26"}
+    assert extrair_parametros("quantos clientes temos?", spec, "2026-11-26") == {}
+
+
+def test_proposta_que_repete_consulta_aprovada_nao_vira_relatorio():
+    from evolucao.pipeline import consulta_equivalente
+    aprov = {"nome": "nomes_clientes_hoje", "entidade": "clientes", "operacao": "listar", "saida": ["nome", "cidade"], "filtros": [{"campo": "criado_em", "op": "ultimos_dias", "parametro": "dias"}]}
+    prop = {"entidade": "clientes", "operacao": "listar", "saida": ["nome"], "filtros": [{"campo": "criado_em", "op": "ultimos_dias", "parametro": "dias"}]}
+    assert consulta_equivalente(prop, [aprov]) is aprov
+    assert consulta_equivalente({**prop, "saida": ["nome", "email"]}, [aprov]) is None  # pede um campo que a aprovada não mostra: é trabalho novo
+    assert consulta_equivalente({**prop, "operacao": "contar"}, [aprov]) is None
+
+
+def test_pergunta_sem_parametro_vai_para_a_fila_dos_agents(monkeypatch):
+    from app import main
+    spec = {"nome": "c_dias", "descricao": "d", "entidade": "clientes", "operacao": "contar", "permissao": "clientes.ver", "saida": [], "sinonimos": {},
+            "parametros": {"dias": {"tipo": "numero", "obrigatorio": True}}, "filtros": [{"campo": "criado_em", "op": "ultimos_dias", "parametro": "dias"}],
+            "exemplos": ["quantos clientes cadastrados nos últimos 7 dias", "total de clientes cadastrados nos últimos 30 dias", "numero de clientes cadastrados nos últimos 15 dias"], "palavras_chave": ["clientes", "cadastrados"]}
+    r = main._agente("quantos clientes foram cadastrados ontem?", [], main.PerguntaIn(pergunta="quantos clientes foram cadastrados ontem?", catalogo=[spec], hoje="2026-11-26"))
+    assert r["encontrou"] is False and "preciso saber" in r["resposta"]
+
+
+def test_tester_conta_periodo_de_ate_por_datas():
+    from evolucao.agentes import _total_da_janela
+    from evolucao.esquema import DADOS_TESTE, HOJE_TESTE
+    spec = {"entidade": "clientes", "operacao": "listar", "parametros": {"de": {"tipo": "data"}, "ate": {"tipo": "data"}},
+            "filtros": [{"campo": "criado_em", "op": "maior_igual", "parametro": "de"}, {"campo": "criado_em", "op": "menor_igual", "parametro": "ate"}]}
+    todos = _total_da_janela(spec, {"de": "2000-01-01", "ate": HOJE_TESTE})
+    assert todos == len([l for l in DADOS_TESTE["clientes"] if l.get("criado_em") and l["criado_em"][:10] <= HOJE_TESTE])
+    assert _total_da_janela(spec, {"de": "lixo", "ate": HOJE_TESTE}) is None

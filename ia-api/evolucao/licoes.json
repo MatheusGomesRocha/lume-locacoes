@@ -1,34 +1,98 @@
 [
-  {"id": "L01-data-futura", "agentes": ["analista", "construtor"], "gatilhos": ["\\b(hoje|amanha|proxim\\w+|vence\\w*|devolu\\w+|retirad\\w+|retira\\w*|esta semana)\\b"],
-   "fazer": "Pergunta sobre o FUTURO ou sobre 'hoje' em data de retirada, devolução ou vencimento: filtro op=proximos_dias, com um parâmetro numero chamado dias (obrigatório). N=0 é só hoje.",
-   "evitar": "op=igual com um parâmetro numérico (o parâmetro dias é numero e o campo é data: dá erro C09), e trocar a operação que o Analista pediu (dá F02).",
-   "exemplo": "'Quais orçamentos têm devolução hoje?' -> entidade orcamentos, filtro {campo:data_devolucao, op:proximos_dias, parametro:dias}, exemplo de params {dias:0}.",
-   "pergunta_de_exemplo": "Quais orçamentos têm devolução hoje?"},
-  {"id": "L02-data-passada", "agentes": ["analista", "construtor"], "gatilhos": ["\\bultim\\w+", "\\bcadastrad\\w+", "\\bcriad\\w+", "\\bnovos?\\b"],
-   "fazer": "Pergunta sobre o PASSADO ('últimos 7 dias', 'cadastrados esta semana'): filtro op=ultimos_dias no campo criado_em (ou na data que a pergunta cita), parâmetro numero dias.",
-   "evitar": "chamar o parâmetro de '7' ou 'sete' (o nome diz o que ele é: dias) e escrever o número fixo no filtro.",
-   "exemplo": "'Quantos clientes foram cadastrados nos últimos 7 dias?' -> {campo:criado_em, op:ultimos_dias, parametro:dias}, params {dias:7}.",
-   "pergunta_de_exemplo": "Quantos clientes foram cadastrados nos últimos 7 dias?"},
-  {"id": "L03-orc-datas", "agentes": ["construtor"], "gatilhos": ["devolu\\w+", "retirad\\w+", "retira\\w*", "\\borcamentos?\\b"],
-   "fazer": "Ao LISTAR orçamentos, a saída leva data_retirada E data_devolucao juntas (as duas são obrigatórias no orçamento).",
-   "evitar": "mostrar só data_devolucao ou só data_retirada (regra ORC-DATAS: bloqueio).",
-   "exemplo": "saida: [numero, cliente_nome, evento, data_retirada, data_devolucao, status].",
-   "pergunta_de_exemplo": "Quais orçamentos têm devolução hoje?"},
-  {"id": "L04-papel-minimo", "agentes": ["construtor"], "sempre": true,
-   "fazer": "papel_minimo=admin só em entidade restrita (usuarios, grupos). Nas outras, omita papel_minimo: vale a permissão da tela.",
-   "evitar": "escrever papel_minimo em clientes, produtos, orçamentos ou cobranças: prometeria um bloqueio que não existe.",
-   "exemplo": "orcamentos: permissao orcamentos.ver, sem papel_minimo."},
-  {"id": "L05-filtros-da-proposta", "agentes": ["construtor"], "sempre": true,
-   "fazer": "Use exatamente os filtros (campo e op) que a PROPOSTA trouxe.",
-   "evitar": "trocar a operação por outra que 'parece' igual: o relatório marca F02 e a consulta reprova.",
-   "exemplo": "proposta com {data_devolucao, proximos_dias} -> a consulta tem {data_devolucao, proximos_dias}."},
-  {"id": "L06-dado-inexistente", "agentes": ["analista"], "gatilhos": ["\\bmor\\w+", "\\bresid\\w+", "\\bcidade\\b", "\\bidade\\b", "\\bmarca\\b", "\\bsexo\\b", "\\bcargo\\b"],
-   "fazer": "Se a pergunta pede um dado que NÃO está no ESQUEMA para aquela entidade (cidade de usuário, idade de cliente, marca de produto), a decisão é nao_suportado.",
-   "evitar": "inventar campo ou aproximar com outro campo (cidade de usuário NÃO é o grupo dele).",
-   "exemplo": "'Quantos usuários moram em Fortaleza?' -> nao_suportado: usuários não têm cidade.",
-   "pergunta_de_exemplo": "Quantos usuários moram em Fortaleza?"},
-  {"id": "L07-expectativas-do-analista", "agentes": ["analista"], "sempre": true,
-   "fazer": "Nas expectativas, conte linha por linha nos DADOS DE TESTE usando HOJE_NOS_TESTES. Resultado 0 é válido e deve aparecer em pelo menos um caso.",
-   "evitar": "esperar 1 quando nenhuma linha cai na janela (confira a data de cada linha).",
-   "exemplo": "'devolução hoje' com HOJE 2026-11-26: nenhuma devolução em 26/11 -> esperado_total 0."}
+ {
+  "id": "L01-data-futura",
+  "agentes": [
+   "analista",
+   "construtor"
+  ],
+  "gatilhos": [
+   "\\b(hoje|ontem|anteontem|amanha|semana|mes|dia \\d+|proxim\\w+|vence\\w*|devolu\\w+|retirad\\w+|retira\\w*)\\b"
+  ],
+  "fazer": "Pergunta sobre um PERÍODO DE CALENDÁRIO (hoje, ontem, amanhã, esta semana, mês passado, dia 15/11) em qualquer data: UMA consulta por período, com parâmetros tipo data de e ate e os filtros maior_igual (de) e menor_igual (ate) no mesmo campo; o nome termina em _periodo. Só use proximos_dias/ultimos_dias quando a pergunta fala em N dias.",
+  "evitar": "criar uma consulta por dia (_hoje, _ontem), op=igual com parâmetro numérico (erro C09) e trocar a operação que o Analista pediu (erro F02).",
+  "exemplo": "'Quais orçamentos têm devolução hoje?' -> orcamentos, filtros [{data_devolucao, maior_igual, de},{data_devolucao, menor_igual, ate}], params {de:'2026-11-26', ate:'2026-11-26'}, nome orcamentos_devolucao_periodo.",
+  "pergunta_de_exemplo": "Quais orçamentos têm devolução hoje?"
+ },
+ {
+  "id": "L02-data-passada",
+  "agentes": [
+   "analista",
+   "construtor"
+  ],
+  "gatilhos": [
+   "\\bultim\\w+",
+   "\\bcadastrad\\w+",
+   "\\bcriad\\w+",
+   "\\bnovos?\\b"
+  ],
+  "fazer": "Pergunta sobre o PASSADO ('últimos 7 dias', 'cadastrados esta semana'): filtro op=ultimos_dias no campo criado_em (ou na data que a pergunta cita), parâmetro numero dias.",
+  "evitar": "chamar o parâmetro de '7' ou 'sete' (o nome diz o que ele é: dias) e escrever o número fixo no filtro.",
+  "exemplo": "'Quantos clientes foram cadastrados nos últimos 7 dias?' -> {campo:criado_em, op:ultimos_dias, parametro:dias}, params {dias:7}.",
+  "pergunta_de_exemplo": "Quantos clientes foram cadastrados nos últimos 7 dias?"
+ },
+ {
+  "id": "L03-orc-datas",
+  "agentes": [
+   "construtor"
+  ],
+  "gatilhos": [
+   "devolu\\w+",
+   "retirad\\w+",
+   "retira\\w*",
+   "\\borcamentos?\\b"
+  ],
+  "fazer": "Ao LISTAR orçamentos, a saída leva data_retirada E data_devolucao juntas (as duas são obrigatórias no orçamento).",
+  "evitar": "mostrar só data_devolucao ou só data_retirada (regra ORC-DATAS: bloqueio).",
+  "exemplo": "saida: [numero, cliente_nome, evento, data_retirada, data_devolucao, status].",
+  "pergunta_de_exemplo": "Quais orçamentos têm devolução hoje?"
+ },
+ {
+  "id": "L04-papel-minimo",
+  "agentes": [
+   "construtor"
+  ],
+  "sempre": true,
+  "fazer": "papel_minimo=admin só em entidade restrita (usuarios, grupos). Nas outras, omita papel_minimo: vale a permissão da tela.",
+  "evitar": "escrever papel_minimo em clientes, produtos, orçamentos ou cobranças: prometeria um bloqueio que não existe.",
+  "exemplo": "orcamentos: permissao orcamentos.ver, sem papel_minimo."
+ },
+ {
+  "id": "L05-filtros-da-proposta",
+  "agentes": [
+   "construtor"
+  ],
+  "sempre": true,
+  "fazer": "Use exatamente os filtros (campo e op) que a PROPOSTA trouxe.",
+  "evitar": "trocar a operação por outra que 'parece' igual: o relatório marca F02 e a consulta reprova.",
+  "exemplo": "proposta com {data_devolucao, proximos_dias} -> a consulta tem {data_devolucao, proximos_dias}."
+ },
+ {
+  "id": "L06-dado-inexistente",
+  "agentes": [
+   "analista"
+  ],
+  "gatilhos": [
+   "\\bmor\\w+",
+   "\\bresid\\w+",
+   "\\bcidade\\b",
+   "\\bidade\\b",
+   "\\bmarca\\b",
+   "\\bsexo\\b",
+   "\\bcargo\\b"
+  ],
+  "fazer": "Se a pergunta pede um dado que NÃO está no ESQUEMA para aquela entidade (cidade de usuário, idade de cliente, marca de produto), a decisão é nao_suportado.",
+  "evitar": "inventar campo ou aproximar com outro campo (cidade de usuário NÃO é o grupo dele).",
+  "exemplo": "'Quantos usuários moram em Fortaleza?' -> nao_suportado: usuários não têm cidade.",
+  "pergunta_de_exemplo": "Quantos usuários moram em Fortaleza?"
+ },
+ {
+  "id": "L07-expectativas-do-analista",
+  "agentes": [
+   "analista"
+  ],
+  "sempre": true,
+  "fazer": "Nas expectativas, conte linha por linha nos DADOS DE TESTE usando HOJE_NOS_TESTES. Resultado 0 é válido e deve aparecer em pelo menos um caso.",
+  "evitar": "esperar 1 quando nenhuma linha cai na janela (confira a data de cada linha).",
+  "exemplo": "'devolução hoje' com HOJE 2026-11-26: nenhuma devolução em 26/11 -> esperado_total 0."
+ }
 ]

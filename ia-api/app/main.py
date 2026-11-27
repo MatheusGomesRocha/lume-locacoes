@@ -272,13 +272,14 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
         specs = specs_validas(dados.catalogo)
         spec = buscar_consulta(pergunta, specs)
         if spec:
-            params = extrair_parametros(pergunta, spec)
+            params = extrair_parametros(pergunta, spec, dados.hoje)
             # Parâmetro de texto (ex.: categoria) o servidor não consegue ler da pergunta: ele não tem os dados. Vai a pergunta junto
             # e o front acha o valor entre os que existem de verdade; se não achar, ele pergunta com as opções reais.
             sem_texto = [n for n in _faltando(spec, params) if spec["parametros"][n].get("tipo") != "texto"]
             falta = sem_texto
             if falta:
-                return _resposta_agente(f"Para responder preciso saber: {', '.join(falta)}. Diga na pergunta, por exemplo “{(spec.get('exemplos') or [''])[0]}”.", gerada_por_llm=False)
+                # encontrou=False: sem resposta concreta, a pergunta entra na fila dos Agents (o usuário pode ter escrito de um jeito que ainda não existe)
+                return _resposta_agente(f"Para responder preciso saber: {', '.join(falta)}. Diga na pergunta, por exemplo “{(spec.get('exemplos') or [''])[0]}”.", encontrou=False, gerada_por_llm=False)
             args = {"nome": spec["nome"], "params": params}
             if _faltando(spec, params):
                 args["pergunta"] = pergunta[:300]
@@ -345,7 +346,7 @@ def evolucao_propor(dados: EvolucaoIn):
         return {"relatorios": [], "ignoradas": ignoradas}
     try:
         relatorios = gerar_relatorios(provedor_llm, limitador_llm, validas, specs,
-                                      lambda i: f"EV-{dados.proximo_numero + i:04d}")
+                                      lambda i: f"EV-{dados.proximo_numero + i:04d}", ignoradas)
     except Exception as e:  # ErroAgente, cota, rede: o Master vê o motivo em vez de um erro mudo
         raise HTTPException(status_code=502, detail=f"Os Agents não conseguiram terminar: {str(e)[:200]}") from None
     return {"relatorios": relatorios, "ignoradas": ignoradas}
