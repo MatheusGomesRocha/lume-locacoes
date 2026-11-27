@@ -1,154 +1,154 @@
 [
-  {
-    "id": "L01-data-futura",
-    "agentes": [
-      "analista",
-      "construtor"
-    ],
-    "gatilhos": [
-      "\\b(hoje|ontem|anteontem|amanha|semana|mes|dia \\d+|proxim\\w+|vence\\w*|devolu\\w+|retirad\\w+|retira\\w*)\\b"
-    ],
-    "fazer": "Pergunta sobre um PERÍODO DE CALENDÁRIO (hoje, ontem, amanhã, esta semana, mês passado, dia 15/11) em qualquer data: UMA consulta por período, com parâmetros tipo data de e ate e os filtros maior_igual (de) e menor_igual (ate) no mesmo campo; o nome termina em _periodo. Só use proximos_dias/ultimos_dias quando a pergunta fala em N dias.",
-    "evitar": "criar uma consulta por dia (_hoje, _ontem), op=igual com parâmetro numérico (erro C09) e trocar a operação que o Analista pediu (erro F02).",
-    "exemplo": "'Quais orçamentos têm devolução hoje?' -> orcamentos, filtros [{data_devolucao, maior_igual, de},{data_devolucao, menor_igual, ate}], params {de:'2026-11-26', ate:'2026-11-26'}, nome orcamentos_devolucao_periodo.",
-    "pergunta_de_exemplo": "Quais orçamentos têm devolução hoje?"
-  },
-  {
-    "id": "L02-data-passada",
-    "agentes": [
-      "analista",
-      "construtor"
-    ],
-    "gatilhos": [
-      "\\bultim\\w+",
-      "\\bcadastrad\\w+",
-      "\\bcriad\\w+",
-      "\\bnovos?\\b"
-    ],
-    "fazer": "Pergunta sobre o PASSADO ('últimos 7 dias', 'cadastrados esta semana'): filtro op=ultimos_dias no campo criado_em (ou na data que a pergunta cita), parâmetro numero dias.",
-    "evitar": "chamar o parâmetro de '7' ou 'sete' (o nome diz o que ele é: dias) e escrever o número fixo no filtro.",
-    "exemplo": "'Quantos clientes foram cadastrados nos últimos 7 dias?' -> {campo:criado_em, op:ultimos_dias, parametro:dias}, params {dias:7}.",
-    "pergunta_de_exemplo": "Quantos clientes foram cadastrados nos últimos 7 dias?"
-  },
-  {
-    "id": "L03-orc-datas",
-    "agentes": [
-      "construtor"
-    ],
-    "gatilhos": [
-      "devolu\\w+",
-      "retirad\\w+",
-      "retira\\w*",
-      "\\borcamentos?\\b"
-    ],
-    "fazer": "Ao LISTAR orçamentos, a saída leva data_retirada E data_devolucao juntas (as duas são obrigatórias no orçamento).",
-    "evitar": "mostrar só data_devolucao ou só data_retirada (regra ORC-DATAS: bloqueio).",
-    "exemplo": "saida: [numero, cliente_nome, evento, data_retirada, data_devolucao, status].",
-    "pergunta_de_exemplo": "Quais orçamentos têm devolução hoje?"
-  },
-  {
-    "id": "L04-papel-minimo",
-    "agentes": [
-      "construtor"
-    ],
-    "sempre": true,
-    "fazer": "papel_minimo=admin só em entidade restrita (usuarios, grupos). Nas outras, omita papel_minimo: vale a permissão da tela.",
-    "evitar": "escrever papel_minimo em clientes, produtos, orçamentos ou cobranças: prometeria um bloqueio que não existe.",
-    "exemplo": "orcamentos: permissao orcamentos.ver, sem papel_minimo."
-  },
-  {
-    "id": "L05-filtros-da-proposta",
-    "agentes": [
-      "construtor"
-    ],
-    "sempre": true,
-    "fazer": "Use exatamente os filtros (campo e op) que a PROPOSTA trouxe.",
-    "evitar": "trocar a operação por outra que 'parece' igual: o relatório marca F02 e a consulta reprova.",
-    "exemplo": "proposta com {data_devolucao, proximos_dias} -> a consulta tem {data_devolucao, proximos_dias}."
-  },
-  {
-    "id": "L06-dado-inexistente",
-    "agentes": [
-      "analista"
-    ],
-    "gatilhos": [
-      "\\bmor\\w+",
-      "\\bresid\\w+",
-      "\\bcidade\\b",
-      "\\bidade\\b",
-      "\\bmarca\\b",
-      "\\bsexo\\b",
-      "\\bcargo\\b"
-    ],
-    "fazer": "Se a pergunta pede um dado que NÃO está no ESQUEMA para aquela entidade (cidade de usuário, idade de cliente, marca de produto), a decisão é nao_suportado.",
-    "evitar": "inventar campo ou aproximar com outro campo (cidade de usuário NÃO é o grupo dele).",
-    "exemplo": "'Quantos usuários moram em Fortaleza?' -> nao_suportado: usuários não têm cidade.",
-    "pergunta_de_exemplo": "Quantos usuários moram em Fortaleza?"
-  },
-  {
-    "id": "L07-expectativas-do-analista",
-    "agentes": [
-      "analista"
-    ],
-    "sempre": true,
-    "fazer": "Nas expectativas, conte linha por linha nos DADOS DE TESTE usando HOJE_NOS_TESTES. Resultado 0 é válido e deve aparecer em pelo menos um caso.",
-    "evitar": "esperar 1 quando nenhuma linha cai na janela (confira a data de cada linha).",
-    "exemplo": "'devolução hoje' com HOJE 2026-11-26: nenhuma devolução em 26/11 -> esperado_total 0."
-  },
-  {
-    "id": "L08-periodo-ate-depois-de-de",
-    "agentes": [
-      "analista",
-      "construtor"
-    ],
-    "gatilhos": [
-      "\\b(hoje|ontem|anteontem|semana|mes|dia \\d+|periodo|entre)\\b"
-    ],
-    "fazer": "Consulta de período de calendário: declare os dois parâmetros de e ate (tipo data, obrigatorio true). O sistema RECUSA de depois de ate: nunca escreva uma expectativa com de maior que ate esperando total; se quiser cobrir isso, o esperado é erro de parâmetro.",
-    "evitar": "expectativa com de depois de ate e total 0 (um período invertido não é um período vazio) e parâmetro de ou ate opcional.",
-    "exemplo": "{'de':'2026-11-26','ate':'2026-11-20'} -> erro de parâmetro, não total 0.",
-    "pergunta_de_exemplo": "Quantos clientes foram cadastrados ontem?"
-  },
-  {
-    "id": "L09-tipo-da-pergunta",
-    "agentes": [
-      "analista",
-      "construtor"
-    ],
-    "gatilhos": [
-      "\\b(quantos|quantas|quais|liste|listar|nomes?|total|soma|somar|valor)\\b"
-    ],
-    "fazer": "A operação da consulta é a que a pergunta pede: 'quantos' conta, 'quais/liste/nomes' lista (com saida e limite), 'soma/valor total' soma. Todos os exemplos da consulta pedem o MESMO tipo. Se pedem tipos diferentes, são consultas diferentes.",
-    "evitar": "propor 'contar' e escrever exemplo 'quais os nomes…' (a checagem C15 bloqueia), ou o contrário.",
-    "exemplo": "'Quais os nomes dos clientes cadastrados hoje?' -> operacao listar, saida [nome], limite 50; 'Quantos clientes cadastrados hoje?' -> operacao contar.",
-    "pergunta_de_exemplo": "Quais os nomes dos clientes cadastrados hoje?"
-  },
-  {
-    "id": "L10-valor-que-varia-e-parametro",
-    "agentes": [
-      "analista",
-      "construtor"
-    ],
-    "gatilhos": [
-      "\\b(pix|cart\\w+|boleto|dinheiro|aprovad\\w+|pendente|cancelad\\w+|rascunho|enviad\\w+|finalizad\\w+|ativ\\w+|inativ\\w+|atrasad\\w+|pag[oa]s?|semana|hoje|ontem|mes)\\b"
-    ],
-    "fazer": "Quando a pergunta cita um VALOR que pode mudar (forma de pagamento, status, perfil, categoria, ativo/inativo), esse valor é um PARÂMETRO (enum com TODOS os valores do campo), nunca um filtro fixo. O nome da consulta é geral (cobrancas_por_forma), não cita o valor (nada de _no_pix). Os exemplos citam pelo menos DOIS valores diferentes (Pix e cartão), para a busca achar a consulta com qualquer um. TODA restrição da pergunta vira parâmetro: período (hoje, essa semana, últimos N dias) = parâmetros de data de/até no campo de data certo; situação e forma = enum. Uma pergunta como 'pagos no cartão essa semana' precisa de forma, situação e período; se a consulta não filtra algum, ela devolveria o total geral.",
-    "evitar": "filtro com valor fixo (op igual + valor) e nome ou palavras_chave presos a um valor ('pagos_no_pix'): a pergunta do cartão pediria outra consulta.",
-    "exemplo": "'Quantos orçamentos foram pagos no Pix?' -> pagamentos, contar, parâmetro forma (enum pix, cartao, boleto, dinheiro) e status (enum), nome cobrancas_por_forma_e_situacao, exemplos com Pix e com cartão.",
-    "pergunta_de_exemplo": "Quantos orçamentos foram pagos no Pix?"
-  },
-  {
-    "id": "L11-palavra-do-usuario-na-busca",
-    "agentes": [
-      "analista",
-      "construtor"
-    ],
-    "gatilhos": [
-      "\\b(orcamentos?|pedidos?|reservas?|pagos?|cobrancas?|pagamentos?)\\b"
-    ],
-    "fazer": "O PRIMEIRO exemplo é a pergunta original, palavra por palavra, e ela tem que achar a consulta (a checagem C11 bloqueia se não achar). Se o usuário usa uma palavra que não é o nome da entidade ('orçamentos pagos' numa consulta de cobranças/pagamentos), ponha a palavra dele em palavras_chave e em sinonimos.",
-    "evitar": "reescrever a pergunta do usuário nos exemplos e deixar a original de fora, ou ignorar o termo que ele usou.",
-    "exemplo": "palavras_chave ['pagamentos','cobrancas','orcamentos','pago'] para 'Quantos orçamentos foram pagos no Pix?'.",
-    "pergunta_de_exemplo": "Quantos orçamentos foram pagos no Pix?"
-  }
+ {
+  "id": "L01-data-futura",
+  "agentes": [
+   "analista",
+   "construtor"
+  ],
+  "gatilhos": [
+   "\\b(hoje|ontem|anteontem|amanha|semana|mes|dia \\d+|proxim\\w+|vence\\w*|devolu\\w+|retirad\\w+|retira\\w*)\\b"
+  ],
+  "fazer": "Pergunta sobre um PERÍODO DE CALENDÁRIO (hoje, ontem, amanhã, esta semana, mês passado, dia 15/11) em qualquer data: UMA consulta por período, com parâmetros tipo data de e ate e os filtros maior_igual (de) e menor_igual (ate) no mesmo campo; o nome termina em _periodo. Só use proximos_dias/ultimos_dias quando a pergunta fala em N dias.",
+  "evitar": "criar uma consulta por dia (_hoje, _ontem), op=igual com parâmetro numérico (erro C09) e trocar a operação que o Analista pediu (erro F02).",
+  "exemplo": "'Quais orçamentos têm devolução hoje?' -> orcamentos, filtros [{data_devolucao, maior_igual, de},{data_devolucao, menor_igual, ate}], params {de:'2026-11-26', ate:'2026-11-26'}, nome orcamentos_devolucao_periodo.",
+  "pergunta_de_exemplo": "Quais orçamentos têm devolução hoje?"
+ },
+ {
+  "id": "L02-data-passada",
+  "agentes": [
+   "analista",
+   "construtor"
+  ],
+  "gatilhos": [
+   "\\bultim\\w+",
+   "\\bcadastrad\\w+",
+   "\\bcriad\\w+",
+   "\\bnovos?\\b"
+  ],
+  "fazer": "Pergunta sobre o PASSADO ('últimos 7 dias', 'cadastrados esta semana'): filtro op=ultimos_dias no campo criado_em (ou na data que a pergunta cita), parâmetro numero dias.",
+  "evitar": "chamar o parâmetro de '7' ou 'sete' (o nome diz o que ele é: dias) e escrever o número fixo no filtro.",
+  "exemplo": "'Quantos clientes foram cadastrados nos últimos 7 dias?' -> {campo:criado_em, op:ultimos_dias, parametro:dias}, params {dias:7}.",
+  "pergunta_de_exemplo": "Quantos clientes foram cadastrados nos últimos 7 dias?"
+ },
+ {
+  "id": "L03-orc-datas",
+  "agentes": [
+   "construtor"
+  ],
+  "gatilhos": [
+   "devolu\\w+",
+   "retirad\\w+",
+   "retira\\w*",
+   "\\borcamentos?\\b"
+  ],
+  "fazer": "Ao LISTAR orçamentos, a saída leva data_retirada E data_devolucao juntas (as duas são obrigatórias no orçamento).",
+  "evitar": "mostrar só data_devolucao ou só data_retirada (regra ORC-DATAS: bloqueio).",
+  "exemplo": "saida: [numero, cliente_nome, evento, data_retirada, data_devolucao, status].",
+  "pergunta_de_exemplo": "Quais orçamentos têm devolução hoje?"
+ },
+ {
+  "id": "L04-papel-minimo",
+  "agentes": [
+   "construtor"
+  ],
+  "sempre": true,
+  "fazer": "papel_minimo=admin só em entidade restrita (usuarios, grupos). Nas outras, omita papel_minimo: vale a permissão da tela.",
+  "evitar": "escrever papel_minimo em clientes, produtos, orçamentos ou cobranças: prometeria um bloqueio que não existe.",
+  "exemplo": "orcamentos: permissao orcamentos.ver, sem papel_minimo."
+ },
+ {
+  "id": "L05-filtros-da-proposta",
+  "agentes": [
+   "construtor"
+  ],
+  "sempre": true,
+  "fazer": "Use exatamente os filtros (campo e op) que a PROPOSTA trouxe.",
+  "evitar": "trocar a operação por outra que 'parece' igual: o relatório marca F02 e a consulta reprova.",
+  "exemplo": "proposta com {data_devolucao, proximos_dias} -> a consulta tem {data_devolucao, proximos_dias}."
+ },
+ {
+  "id": "L06-dado-inexistente",
+  "agentes": [
+   "analista"
+  ],
+  "gatilhos": [
+   "\\bmor\\w+",
+   "\\bresid\\w+",
+   "\\bcidade\\b",
+   "\\bidade\\b",
+   "\\bmarca\\b",
+   "\\bsexo\\b",
+   "\\bcargo\\b"
+  ],
+  "fazer": "Se a pergunta pede um dado que NÃO está no ESQUEMA para aquela entidade (cidade de usuário, idade de cliente, marca de produto), a decisão é nao_suportado.",
+  "evitar": "inventar campo ou aproximar com outro campo (cidade de usuário NÃO é o grupo dele).",
+  "exemplo": "'Quantos usuários moram em Fortaleza?' -> nao_suportado: usuários não têm cidade.",
+  "pergunta_de_exemplo": "Quantos usuários moram em Fortaleza?"
+ },
+ {
+  "id": "L07-expectativas-do-analista",
+  "agentes": [
+   "analista"
+  ],
+  "sempre": true,
+  "fazer": "Nas expectativas, conte linha por linha nos DADOS DE TESTE usando HOJE_NOS_TESTES. Resultado 0 é válido e deve aparecer em pelo menos um caso. Conte o total LINHA A LINHA nos DADOS_DE_TESTE aplicando TODOS os filtros (forma, status e a data) com 'hoje' = HOJE_NOS_TESTES: um pagamento Pix de 30/11 não está 'nesta semana' se hoje é 26/11.",
+  "evitar": "esperar 1 quando nenhuma linha cai na janela (confira a data de cada linha).",
+  "exemplo": "'devolução hoje' com HOJE 2026-11-26: nenhuma devolução em 26/11 -> esperado_total 0."
+ },
+ {
+  "id": "L08-periodo-ate-depois-de-de",
+  "agentes": [
+   "analista",
+   "construtor"
+  ],
+  "gatilhos": [
+   "\\b(hoje|ontem|anteontem|semana|mes|dia \\d+|periodo|entre)\\b"
+  ],
+  "fazer": "Consulta de período de calendário: declare os dois parâmetros de e ate (tipo data, obrigatorio true). O sistema RECUSA de depois de ate: nunca escreva uma expectativa com de maior que ate esperando total; se quiser cobrir isso, o esperado é erro de parâmetro.",
+  "evitar": "expectativa com de depois de ate e total 0 (um período invertido não é um período vazio) e parâmetro de ou ate opcional.",
+  "exemplo": "{'de':'2026-11-26','ate':'2026-11-20'} -> erro de parâmetro, não total 0.",
+  "pergunta_de_exemplo": "Quantos clientes foram cadastrados ontem?"
+ },
+ {
+  "id": "L09-tipo-da-pergunta",
+  "agentes": [
+   "analista",
+   "construtor"
+  ],
+  "gatilhos": [
+   "\\b(quantos|quantas|quais|liste|listar|nomes?|total|soma|somar|valor)\\b"
+  ],
+  "fazer": "A operação da consulta é a que a pergunta pede: 'quantos' conta, 'quais/liste/nomes' lista (com saida e limite), 'soma/valor total' soma. Todos os exemplos da consulta pedem o MESMO tipo. Se pedem tipos diferentes, são consultas diferentes.",
+  "evitar": "propor 'contar' e escrever exemplo 'quais os nomes…' (a checagem C15 bloqueia), ou o contrário.",
+  "exemplo": "'Quais os nomes dos clientes cadastrados hoje?' -> operacao listar, saida [nome], limite 50; 'Quantos clientes cadastrados hoje?' -> operacao contar.",
+  "pergunta_de_exemplo": "Quais os nomes dos clientes cadastrados hoje?"
+ },
+ {
+  "id": "L10-valor-que-varia-e-parametro",
+  "agentes": [
+   "analista",
+   "construtor"
+  ],
+  "gatilhos": [
+   "\\b(pix|cart\\w+|boleto|dinheiro|aprovad\\w+|pendente|cancelad\\w+|rascunho|enviad\\w+|finalizad\\w+|ativ\\w+|inativ\\w+|atrasad\\w+|pag[oa]s?|semana|hoje|ontem|mes)\\b"
+  ],
+  "fazer": "Quando a pergunta cita um VALOR que pode mudar (forma de pagamento, status, perfil, categoria, ativo/inativo), esse valor é um PARÂMETRO (enum com TODOS os valores do campo), nunca um filtro fixo. O nome da consulta é geral (cobrancas_por_forma), não cita o valor (nada de _no_pix). Os exemplos citam pelo menos DOIS valores diferentes (Pix e cartão), para a busca achar a consulta com qualquer um. TODA restrição da pergunta vira parâmetro: período (hoje, essa semana, últimos N dias) = parâmetros de data de/até no campo de data certo; situação e forma = enum. Uma pergunta como 'pagos no cartão essa semana' precisa de forma, situação e período; se a consulta não filtra algum, ela devolveria o total geral.",
+  "evitar": "filtro com valor fixo (op igual + valor) e nome ou palavras_chave presos a um valor ('pagos_no_pix'): a pergunta do cartão pediria outra consulta.",
+  "exemplo": "'Quantos orçamentos foram pagos no Pix?' -> pagamentos, contar, parâmetro forma (enum pix, cartao, boleto, dinheiro) e status (enum), nome cobrancas_por_forma_e_situacao, exemplos com Pix e com cartão.",
+  "pergunta_de_exemplo": "Quantos orçamentos foram pagos no Pix?"
+ },
+ {
+  "id": "L11-palavra-do-usuario-na-busca",
+  "agentes": [
+   "analista",
+   "construtor"
+  ],
+  "gatilhos": [
+   "\\b(orcamentos?|pedidos?|reservas?|pagos?|cobrancas?|pagamentos?)\\b"
+  ],
+  "fazer": "O PRIMEIRO exemplo é a pergunta original, palavra por palavra, e ela tem que achar a consulta (a checagem C11 bloqueia se não achar). Se o usuário usa uma palavra que não é o nome da entidade ('orçamentos pagos' numa consulta de cobranças/pagamentos), ponha a palavra dele em palavras_chave e em sinonimos.",
+  "evitar": "reescrever a pergunta do usuário nos exemplos e deixar a original de fora, ou ignorar o termo que ele usou.",
+  "exemplo": "palavras_chave ['pagamentos','cobrancas','orcamentos','pago'] para 'Quantos orçamentos foram pagos no Pix?'.",
+  "pergunta_de_exemplo": "Quantos orçamentos foram pagos no Pix?"
+ }
 ]

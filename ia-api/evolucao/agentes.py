@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta
 from app import ferramentas
 from evolucao import checagens
 from evolucao import licoes
-from evolucao.consulta import CHAVES_DA_SPEC, JANELAS, ErroConsulta, OPERACOES, buscar_consulta, executar, extrair_parametros
+from evolucao.consulta import CHAVES_DA_SPEC, JANELAS, ErroConsulta, OPERACOES, buscar_consulta, executar, extrair_parametros, sem_acento
 from evolucao.esquema import DADOS_TESTE, ESQUEMA, HOJE_TESTE, REGRAS_DE_MODULO, SESSOES_TESTE, TIPOS
 
 
@@ -375,30 +375,50 @@ FAMILIA_EXECUCAO = {"execucao", "permissao", "parametro", "vazamento"}
 
 
 def _total_da_janela(spec: dict, params: dict) -> int | None:
-    """Contagem por datas feita só com datas, sem usar o executor (fonte independente): "últimos/próximos N dias" e período de/ate
-    (maior_igual/menor_igual/igual com parâmetro data). None se o formato não for só filtros de data com parâmetros válidos."""
+    """Contagem feita só com datas e comparações de igualdade, sem usar o executor (fonte independente): "últimos/próximos N dias",
+    período de/ate (maior_igual/menor_igual/igual com parâmetro data) e igual/diferente em enum, texto, número ou bool (forma, status, ativo…).
+    None se houver outro formato de filtro ou parâmetro inválido (aí o esperado do Tester/Analista fica como está)."""
     fs = spec.get("filtros") or []
     if spec.get("operacao") not in ("contar", "listar") or not fs or spec.get("entidade") not in DADOS_TESTE:
         return None
     hoje = date.fromisoformat(HOJE_TESTE)
+    defs = spec.get("parametros") or {}
     regras = []  # (campo, de, ate)
+    iguais = []  # (campo, "igual"|"diferente", valor)
     for f in fs:
-        v = params.get(f.get("parametro"))
+        nome = f.get("parametro")
+        if nome is not None and nome not in params:
+            if (defs.get(nome) or {}).get("obrigatorio"):
+                return None
+            continue  # filtro opcional sem valor: não filtra (como no executor)
+        v = params.get(nome) if nome is not None else f.get("valor")
         if f.get("op") in JANELAS:
             if isinstance(v, bool) or not isinstance(v, int) or not 0 <= v <= 3650:
                 return None
             regras.append((f["campo"], *((hoje, hoje + timedelta(days=v)) if f["op"] == "proximos_dias" else (hoje - timedelta(days=v), hoje))))
-        elif f.get("op") in ("maior_igual", "menor_igual", "igual") and (spec.get("parametros") or {}).get(f.get("parametro"), {}).get("tipo") == "data":
+        elif f.get("op") in ("maior_igual", "menor_igual", "igual") and (defs.get(nome) or {}).get("tipo") == "data":
             try:
                 d = date.fromisoformat(str(v))
             except ValueError:
                 return None
             regras.append((f["campo"], d if f["op"] != "menor_igual" else date.min, d if f["op"] != "maior_igual" else date.max))
+        elif f.get("op") in ("igual", "diferente") and isinstance(v, (str, int, float, bool)):
+            iguais.append((f["campo"], f["op"], v))
         else:
             return None
+    def igual(a, b):
+        if isinstance(b, str) and isinstance(a, str):
+            return sem_acento(a).strip().lower() == sem_acento(b).strip().lower()
+        return a == b
     def vale(l):
         for campo, de, ate in regras:
             if not l.get(campo) or not de <= date.fromisoformat(str(l[campo])[:10]) <= ate:
+                return False
+        for campo, op, v in iguais:
+            if l.get(campo) is None:
+                if op == "igual":
+                    return False
+            elif igual(l[campo], v) != (op == "igual"):
                 return False
         return True
     return sum(1 for l in DADOS_TESTE[spec["entidade"]] if vale(l))

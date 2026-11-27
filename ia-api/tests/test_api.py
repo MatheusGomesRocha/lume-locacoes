@@ -467,3 +467,14 @@ def test_resposta_marcada_como_errada_nao_e_barrada_por_ja_existir_consulta():
     finally:
         agentes.chamar_json = original
     assert "resposta_dada" in captado["usuario"] and "5 pagamentos" in captado["usuario"]
+
+
+def test_previa_parametros_entende_as_perguntas_de_exemplo_com_a_data_de_hoje():
+    spec = {"nome": "contar_pagamentos_por_forma_e_periodo", "descricao": "d", "permissao": "financeiro.ver", "entidade": "pagamentos", "operacao": "contar",
+            "filtros": [{"campo": "forma", "op": "igual", "parametro": "forma"}, {"campo": "pago_em", "op": "maior_igual", "parametro": "de"}, {"campo": "pago_em", "op": "menor_igual", "parametro": "ate"}],
+            "parametros": {"forma": {"tipo": "enum", "valores": ["pix", "boleto"], "obrigatorio": True}, "de": {"tipo": "data", "obrigatorio": True}, "ate": {"tipo": "data", "obrigatorio": True}},
+            "exemplos": ["quantos orçamentos foram pagos no pix hoje?"]}
+    r = client.post("/evolucao/previa-parametros", json={"spec": spec, "hoje": "2026-11-27"}, headers=HEADERS if "HEADERS" in globals() else {})
+    assert r.status_code == 200, r.text
+    x = r.json()["exemplos"][0]
+    assert x["params"]["forma"] == "pix" and x["params"]["de"] == "2026-11-27" and x["params"]["ate"] == "2026-11-27" and x["faltando"] == []

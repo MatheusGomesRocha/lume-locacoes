@@ -396,6 +396,25 @@ def evolucao_checar(dados: ChecarIn):
     return {"achados": achados, "bloqueio": checagens.tem_bloqueio(achados)}
 
 
+class PreviaIn(BaseModel):
+    spec: dict[str, Any]
+    hoje: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    perguntas: list[str] = Field(default_factory=list, max_length=8)
+
+
+@app.post("/evolucao/previa-parametros", dependencies=[Depends(exigir_token), Depends(limitar)])
+def evolucao_previa_parametros(dados: PreviaIn):
+    """Para a prévia com dados REAIS: o que o chat entenderia de cada pergunta de exemplo (parâmetros) usando a data de hoje de quem usa.
+    Só texto e datas: a API não recebe nem devolve nenhum dado do sistema."""
+    spec, _ = normalizar_spec(dados.spec)
+    perguntas = [p[:300] for p in (dados.perguntas or spec.get("exemplos") or [])][:5]
+    saida = []
+    for pergunta in perguntas:
+        params = extrair_parametros(pergunta, spec, dados.hoje)
+        saida.append({"pergunta": pergunta, "params": params, "faltando": _faltando(spec, params)})
+    return {"exemplos": saida}
+
+
 class RevisarIn(BaseModel):
     relatorio: dict[str, Any]
     catalogo: list[dict[str, Any]] = Field(default_factory=list, max_length=30)

@@ -1,405 +1,425 @@
 {
-  "comentario": "Registro dos erros que já encontramos. Cada erro declara, nas quatro camadas (codigo, checagem_fixa, licao, matriz), o que o protege: uma referência que o teste confere, 'nao_se_aplica' com o motivo, ou 'lacuna' (só vale para erro com status aberto). Erro novo entra aqui no mesmo commit da correção.",
-  "erros": [
-    {
-      "id": "E01-periodo-invertido",
-      "titulo": "Período com data inicial depois da final devolvia total 0",
-      "visto_em": "EV-0036 (aviso T02 do Tester)",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_catalogo_chat.py::test_vetores_compartilhados_com_o_front"
-        },
-        "checagem_fixa": {
-          "checagem": "C14"
-        },
-        "licao": {
-          "licao": "L08-periodo-ate-depois-de-de"
-        },
-        "matriz": {
-          "matriz": "período invertido é recusado"
-        }
-      }
+ "comentario": "Registro dos erros que já encontramos. Cada erro declara, nas quatro camadas (codigo, checagem_fixa, licao, matriz), o que o protege: uma referência que o teste confere, 'nao_se_aplica' com o motivo, ou 'lacuna' (só vale para erro com status aberto). Erro novo entra aqui no mesmo commit da correção.",
+ "erros": [
+  {
+   "id": "E01-periodo-invertido",
+   "titulo": "Período com data inicial depois da final devolvia total 0",
+   "visto_em": "EV-0036 (aviso T02 do Tester)",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_catalogo_chat.py::test_vetores_compartilhados_com_o_front"
     },
-    {
-      "id": "E02-tipo-da-pergunta",
-      "titulo": "Quem pedia os nomes recebia uma contagem (e o contrário)",
-      "visto_em": "EV-0031 e conversa do chat",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_catalogo_chat.py::test_consulta_de_contar_nao_responde_pedido_de_nomes"
-        },
-        "checagem_fixa": {
-          "checagem": "C15"
-        },
-        "licao": {
-          "licao": "L09-tipo-da-pergunta"
-        },
-        "matriz": {
-          "matriz": "C15 pega contagem"
-        }
-      }
+    "checagem_fixa": {
+     "checagem": "C14"
     },
-    {
-      "id": "E03-seguimento-sem-contexto",
-      "titulo": "“E ontem?” era respondido sem lembrar da pergunta anterior",
-      "visto_em": "conversa do chat",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_catalogo_chat.py::test_seguimento_e_reformulado_com_o_historico"
-        },
-        "checagem_fixa": {
-          "nao_se_aplica": "é do chat, não de uma proposta de consulta"
-        },
-        "licao": {
-          "nao_se_aplica": "os Agents não escrevem o chat"
-        },
-        "matriz": {
-          "teste": "tests/test_matriz.py::test_casos_de_seguimento_sao_coerentes"
-        }
-      }
+    "licao": {
+     "licao": "L08-periodo-ate-depois-de-de"
     },
-    {
-      "id": "E04-proposta-duplicada",
-      "titulo": "Agent propunha de novo uma consulta que já existia",
-      "visto_em": "EV-0035",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_catalogo_chat.py::test_proposta_que_repete_consulta_aprovada_nao_vira_relatorio"
-        },
-        "checagem_fixa": {
-          "checagem": "C01"
-        },
-        "licao": {
-          "nao_se_aplica": "o código descarta a proposta repetida antes do relatório"
-        },
-        "matriz": {
-          "teste": "tests/test_evolucao.py::test_nova_consulta_nao_pode_colidir_com_a_ja_aprovada"
-        }
-      }
-    },
-    {
-      "id": "E05-texto-de-ataque-no-envio",
-      "titulo": "O servidor da API recusava o pacote inteiro quando os testes do Tester traziam “…; DROP TABLE”",
-      "visto_em": "EV-0035 (Failed to fetch)",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "arquivo": "../versao-real/frontend/src/lib/semTextoDeAtaque.test.ts"
-        },
-        "checagem_fixa": {
-          "checagem": "C10"
-        },
-        "licao": {
-          "nao_se_aplica": "o texto de ataque é gerado pelo código do Tester, não pelo modelo"
-        },
-        "matriz": {
-          "arquivo": "../versao-real/backend/tests/Unit/SemTextoDeAtaqueTest.php"
-        }
-      }
-    },
-    {
-      "id": "E06-numero-inventado",
-      "titulo": "O modelo escrevia na resposta um número que não estava nos dados",
-      "visto_em": "conversa do chat",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_catalogo_chat.py::test_texto_do_modelo_com_numero_inventado_e_descartado"
-        },
-        "checagem_fixa": {
-          "nao_se_aplica": "é do texto da resposta, não da proposta"
-        },
-        "licao": {
-          "nao_se_aplica": "o chat não recebe lições dos Agents"
-        },
-        "matriz": {
-          "teste": "tests/test_catalogo_chat.py::test_texto_do_modelo_com_numero_inventado_e_descartado"
-        }
-      }
-    },
-    {
-      "id": "E07-sem-parametro-fora-da-fila",
-      "titulo": "“Para responder preciso saber…” não entrava na fila dos Agents",
-      "visto_em": "EV-0035",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_catalogo_chat.py::test_pergunta_sem_parametro_vai_para_a_fila_dos_agents"
-        },
-        "checagem_fixa": {
-          "nao_se_aplica": "é da fila de perguntas, não da proposta"
-        },
-        "licao": {
-          "nao_se_aplica": "o código decide o que entra na fila"
-        },
-        "matriz": {
-          "teste": "tests/test_catalogo_chat.py::test_pergunta_sem_parametro_vai_para_a_fila_dos_agents"
-        }
-      }
-    },
-    {
-      "id": "E08-total-esperado-de-listagem",
-      "titulo": "O Tester esperava um total errado em listagem por janela",
-      "visto_em": "EV-0030",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_catalogo_chat.py::test_tester_refaz_total_esperado_de_listagem_por_janela"
-        },
-        "checagem_fixa": {
-          "checagem": "T02"
-        },
-        "licao": {
-          "licao": "L07-expectativas-do-analista"
-        },
-        "matriz": {
-          "teste": "tests/test_catalogo_chat.py::test_tester_conta_periodo_de_ate_por_datas"
-        }
-      }
-    },
-    {
-      "id": "E09-aprovador-com-saida-ruim",
-      "titulo": "Agent de Aprovação podia aprovar com saída do modelo inválida",
-      "visto_em": "projeto do Agent 4",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_aprovador.py::test_modelo_discordando_deixa_pendente_e_formato_ruim_nunca_aprova"
-        },
-        "checagem_fixa": {
-          "nao_se_aplica": "o Aprovador é quem aplica as checagens"
-        },
-        "licao": {
-          "nao_se_aplica": "o Aprovador não recebe lições dos outros Agents"
-        },
-        "matriz": {
-          "matriz": "risco da consulta"
-        }
-      }
-    },
-    {
-      "id": "E10-chat-com-frase-de-ataque",
-      "titulo": "Pergunta do usuário com “DROP TABLE” é barrada pelo servidor e o chat mostra uma falha genérica",
-      "visto_em": "EV-0035 (efeito colateral)",
-      "status": "aberto",
-      "camadas": {
-        "codigo": {
-          "lacuna": "o chat deveria responder com educação sem enviar a frase ao servidor"
-        },
-        "checagem_fixa": {
-          "nao_se_aplica": "é do chat, não de uma proposta"
-        },
-        "licao": {
-          "nao_se_aplica": "os Agents não escrevem o chat"
-        },
-        "matriz": {
-          "lacuna": "falta um caso de chat com frase de ataque"
-        }
-      }
-    },
-    {
-      "id": "E11-pedido-longo",
-      "titulo": "Pedido longo (“você consegue me listar os nomes…”) não achava a consulta do mesmo assunto",
-      "visto_em": "conversa do chat",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_catalogo_chat.py::test_pedido_longo_de_nomes_acha_a_consulta_do_mesmo_assunto"
-        },
-        "checagem_fixa": {
-          "checagem": "C11"
-        },
-        "licao": {
-          "nao_se_aplica": "a busca é de código"
-        },
-        "matriz": {
-          "teste": "tests/test_catalogo_chat.py::test_pedido_longo_de_nomes_acha_a_consulta_do_mesmo_assunto"
-        }
-      }
-    },
-    {
-      "id": "E12-ponto-e-virgula-barrado",
-      "titulo": "A checagem P06 reprovava a proposta inteira por um ponto e vírgula numa descrição de caso (falso positivo)",
-      "visto_em": "EV-0037",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_evolucao.py::test_pontuacao_comum_nao_e_ataque_mas_ataque_continua_barrado"
-        },
-        "checagem_fixa": {
-          "checagem": "P06"
-        },
-        "licao": {
-          "nao_se_aplica": "o defeito era da checagem e não do que o Agent escreveu: ela é que foi corrigida"
-        },
-        "matriz": {
-          "matriz": "pontuação comum não é ataque"
-        }
-      }
-    },
-    {
-      "id": "E13-pergunta-de-dado-caiu-na-ajuda",
-      "titulo": "“Qual número do orçamento que será devolvido hoje?” virou resposta de ajuda e nunca entrou na fila dos Agents",
-      "visto_em": "chat de 27/11 (12:17)",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_catalogo_chat.py::test_pergunta_com_periodo_e_pedido_de_dado_vai_para_a_fila_dos_agents"
-        },
-        "checagem_fixa": {
-          "nao_se_aplica": "é do roteamento do chat, não de uma proposta de consulta"
-        },
-        "licao": {
-          "nao_se_aplica": "os Agents só recebem a pergunta depois que ela entra na fila"
-        },
-        "matriz": {
-          "teste": "tests/test_catalogo_chat.py::test_ajuda_que_admite_nao_saber_nao_conta_como_resposta"
-        }
-      }
-    },
-    {
-      "id": "E14-numero-do-orcamento-era-contagem",
-      "titulo": "“Qual número do orçamento…” (o identificador) foi lido como pedido de contagem e a C15 barrou a consulta de listar (falso positivo)",
-      "visto_em": "proposta do dia 27/11 (C15)",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_catalogo_chat.py::test_numero_do_orcamento_e_lista_e_numero_de_orcamentos_e_contagem"
-        },
-        "checagem_fixa": {
-          "checagem": "C15"
-        },
-        "licao": {
-          "licao": "L09-tipo-da-pergunta"
-        },
-        "matriz": {
-          "matriz": "número DO orçamento lista"
-        }
-      }
-    },
-    {
-      "id": "E15-criado-confundido-com-retirada",
-      "titulo": "“Quantos orçamentos foram criados hoje?” não tinha filtro de data de criação: respondia “nenhum” olhando retirada/devolução",
-      "visto_em": "chat de 27/11 (12:29)",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "arquivo": "../versao-real/frontend/src/lib/ferramentas.test.ts"
-        },
-        "checagem_fixa": {
-          "checagem": "ORC-PERIODO"
-        },
-        "licao": {
-          "licao": "L03-orc-datas"
-        },
-        "matriz": {
-          "teste": "tests/test_ferramentas.py::test_cada_modulo_tem_as_suas_datas_e_a_de_criacao_nao_se_mistura_com_retirada"
-        }
-      }
-    },
-    {
-      "id": "E16-valor-que-varia-virou-consulta-estatica",
-      "titulo": "“Quantos orçamentos foram pagos no Pix?” gerou a consulta orcamentos_pagos_no_pix: a pergunta do cartão pediria outra consulta (e o próprio exemplo não era achado)",
-      "visto_em": "relatório EV de 27/11 (12:42)",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_evolucao.py::test_c16_c17_valor_que_varia_e_parametro_nao_parte_da_consulta"
-        },
-        "checagem_fixa": {
-          "checagem": "C16"
-        },
-        "licao": {
-          "licao": "L10-valor-que-varia-e-parametro"
-        },
-        "matriz": {
-          "matriz": "valor que varia vira parâmetro"
-        }
-      }
-    },
-    {
-      "id": "E17-total-geral-dito-como-filtrado",
-      "titulo": "“Quantos orçamentos foram pagos no boleto?” respondeu “não encontrei” e, repetida, “foram 3 pagos no boleto”: nenhuma ferramenta fixa filtra por forma de pagamento e o modelo repetiu o filtro da pergunta sobre o total geral",
-      "visto_em": "chat de 27/11 (12:55)",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_api.py::test_pergunta_por_forma_de_pagamento_sem_consulta_aprovada_nao_vira_total_geral"
-        },
-        "checagem_fixa": {
-          "nao_se_aplica": "é do chat, não de uma proposta de consulta"
-        },
-        "licao": {
-          "nao_se_aplica": "os Agents não escrevem o chat; a pergunta cai na fila deles"
-        },
-        "matriz": {
-          "teste": "tests/test_api.py::test_pergunta_por_forma_de_pagamento_sem_consulta_aprovada_nao_vira_total_geral"
-        }
-      }
-    },
-    {
-      "id": "E18-filtro-da-pergunta-ignorado",
-      "titulo": "“Quantos orçamentos foram pagos no cartão essa semana?” respondeu “5 no cartão”: a consulta não filtrava o período (nem a situação) e a resposta passou o total geral",
-      "visto_em": "chat de 27/11 (12:58)",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_catalogo_chat.py::test_consulta_que_nao_filtra_o_periodo_nao_devolve_o_total_geral"
-        },
-        "checagem_fixa": {
-          "checagem": "C19"
-        },
-        "licao": {
-          "licao": "L10-valor-que-varia-e-parametro"
-        },
-        "matriz": {
-          "matriz": "cobertura dos exemplos"
-        }
-      }
-    },
-    {
-      "id": "E19-verbo-da-data-ignorado",
-      "titulo": "Achado pelo teste de mutação: consulta de “criados hoje” filtrando pela data de retirada passava em todas as checagens (o verbo da pergunta não mandava na data usada)",
-      "visto_em": "teste de mutação de 27/11",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_mutacao.py::test_verbo_da_pergunta_manda_na_data_do_periodo"
-        },
-        "checagem_fixa": {
-          "checagem": "C19"
-        },
-        "licao": {
-          "licao": "L03-orc-datas"
-        },
-        "matriz": {
-          "teste": "tests/test_mutacao.py::test_nenhuma_quebra_passa_sem_ser_percebida"
-        }
-      }
-    },
-    {
-      "id": "E20-furos-achados-pela-matriz-do-esquema",
-      "titulo": "Achados pela matriz gerada: “total de X” lido como lista, “ontem/este mês” fora do período na busca, data escolhida sozinha sem verbo, valor de outro módulo (“orçamentos no Pix”) ignorado, empate inofensivo entre consultas do mesmo módulo, bool (“ativos”) ignorado",
-      "visto_em": "matriz do esquema de 27/11",
-      "status": "fechado",
-      "camadas": {
-        "codigo": {
-          "teste": "tests/test_matriz_esquema.py::test_nenhuma_pergunta_gerada_falha"
-        },
-        "checagem_fixa": {
-          "checagem": "C19"
-        },
-        "licao": {
-          "licao": "L10-valor-que-varia-e-parametro"
-        },
-        "matriz": {
-          "teste": "tests/test_matriz_esquema.py::test_consulta_que_nao_filtra_algo_do_pedido_nunca_responde_o_total_geral"
-        }
-      }
+    "matriz": {
+     "matriz": "período invertido é recusado"
     }
-  ]
+   }
+  },
+  {
+   "id": "E02-tipo-da-pergunta",
+   "titulo": "Quem pedia os nomes recebia uma contagem (e o contrário)",
+   "visto_em": "EV-0031 e conversa do chat",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_catalogo_chat.py::test_consulta_de_contar_nao_responde_pedido_de_nomes"
+    },
+    "checagem_fixa": {
+     "checagem": "C15"
+    },
+    "licao": {
+     "licao": "L09-tipo-da-pergunta"
+    },
+    "matriz": {
+     "matriz": "C15 pega contagem"
+    }
+   }
+  },
+  {
+   "id": "E03-seguimento-sem-contexto",
+   "titulo": "“E ontem?” era respondido sem lembrar da pergunta anterior",
+   "visto_em": "conversa do chat",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_catalogo_chat.py::test_seguimento_e_reformulado_com_o_historico"
+    },
+    "checagem_fixa": {
+     "nao_se_aplica": "é do chat, não de uma proposta de consulta"
+    },
+    "licao": {
+     "nao_se_aplica": "os Agents não escrevem o chat"
+    },
+    "matriz": {
+     "teste": "tests/test_matriz.py::test_casos_de_seguimento_sao_coerentes"
+    }
+   }
+  },
+  {
+   "id": "E04-proposta-duplicada",
+   "titulo": "Agent propunha de novo uma consulta que já existia",
+   "visto_em": "EV-0035",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_catalogo_chat.py::test_proposta_que_repete_consulta_aprovada_nao_vira_relatorio"
+    },
+    "checagem_fixa": {
+     "checagem": "C01"
+    },
+    "licao": {
+     "nao_se_aplica": "o código descarta a proposta repetida antes do relatório"
+    },
+    "matriz": {
+     "teste": "tests/test_evolucao.py::test_nova_consulta_nao_pode_colidir_com_a_ja_aprovada"
+    }
+   }
+  },
+  {
+   "id": "E05-texto-de-ataque-no-envio",
+   "titulo": "O servidor da API recusava o pacote inteiro quando os testes do Tester traziam “…; DROP TABLE”",
+   "visto_em": "EV-0035 (Failed to fetch)",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "arquivo": "../versao-real/frontend/src/lib/semTextoDeAtaque.test.ts"
+    },
+    "checagem_fixa": {
+     "checagem": "C10"
+    },
+    "licao": {
+     "nao_se_aplica": "o texto de ataque é gerado pelo código do Tester, não pelo modelo"
+    },
+    "matriz": {
+     "arquivo": "../versao-real/backend/tests/Unit/SemTextoDeAtaqueTest.php"
+    }
+   }
+  },
+  {
+   "id": "E06-numero-inventado",
+   "titulo": "O modelo escrevia na resposta um número que não estava nos dados",
+   "visto_em": "conversa do chat",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_catalogo_chat.py::test_texto_do_modelo_com_numero_inventado_e_descartado"
+    },
+    "checagem_fixa": {
+     "nao_se_aplica": "é do texto da resposta, não da proposta"
+    },
+    "licao": {
+     "nao_se_aplica": "o chat não recebe lições dos Agents"
+    },
+    "matriz": {
+     "teste": "tests/test_catalogo_chat.py::test_texto_do_modelo_com_numero_inventado_e_descartado"
+    }
+   }
+  },
+  {
+   "id": "E07-sem-parametro-fora-da-fila",
+   "titulo": "“Para responder preciso saber…” não entrava na fila dos Agents",
+   "visto_em": "EV-0035",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_catalogo_chat.py::test_pergunta_sem_parametro_vai_para_a_fila_dos_agents"
+    },
+    "checagem_fixa": {
+     "nao_se_aplica": "é da fila de perguntas, não da proposta"
+    },
+    "licao": {
+     "nao_se_aplica": "o código decide o que entra na fila"
+    },
+    "matriz": {
+     "teste": "tests/test_catalogo_chat.py::test_pergunta_sem_parametro_vai_para_a_fila_dos_agents"
+    }
+   }
+  },
+  {
+   "id": "E08-total-esperado-de-listagem",
+   "titulo": "O Tester esperava um total errado em listagem por janela",
+   "visto_em": "EV-0030",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_catalogo_chat.py::test_tester_refaz_total_esperado_de_listagem_por_janela"
+    },
+    "checagem_fixa": {
+     "checagem": "T02"
+    },
+    "licao": {
+     "licao": "L07-expectativas-do-analista"
+    },
+    "matriz": {
+     "teste": "tests/test_catalogo_chat.py::test_tester_conta_periodo_de_ate_por_datas"
+    }
+   }
+  },
+  {
+   "id": "E09-aprovador-com-saida-ruim",
+   "titulo": "Agent de Aprovação podia aprovar com saída do modelo inválida",
+   "visto_em": "projeto do Agent 4",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_aprovador.py::test_modelo_discordando_deixa_pendente_e_formato_ruim_nunca_aprova"
+    },
+    "checagem_fixa": {
+     "nao_se_aplica": "o Aprovador é quem aplica as checagens"
+    },
+    "licao": {
+     "nao_se_aplica": "o Aprovador não recebe lições dos outros Agents"
+    },
+    "matriz": {
+     "matriz": "risco da consulta"
+    }
+   }
+  },
+  {
+   "id": "E10-chat-com-frase-de-ataque",
+   "titulo": "Pergunta do usuário com “DROP TABLE” é barrada pelo servidor e o chat mostra uma falha genérica",
+   "visto_em": "EV-0035 (efeito colateral)",
+   "status": "aberto",
+   "camadas": {
+    "codigo": {
+     "lacuna": "o chat deveria responder com educação sem enviar a frase ao servidor"
+    },
+    "checagem_fixa": {
+     "nao_se_aplica": "é do chat, não de uma proposta"
+    },
+    "licao": {
+     "nao_se_aplica": "os Agents não escrevem o chat"
+    },
+    "matriz": {
+     "lacuna": "falta um caso de chat com frase de ataque"
+    }
+   }
+  },
+  {
+   "id": "E11-pedido-longo",
+   "titulo": "Pedido longo (“você consegue me listar os nomes…”) não achava a consulta do mesmo assunto",
+   "visto_em": "conversa do chat",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_catalogo_chat.py::test_pedido_longo_de_nomes_acha_a_consulta_do_mesmo_assunto"
+    },
+    "checagem_fixa": {
+     "checagem": "C11"
+    },
+    "licao": {
+     "nao_se_aplica": "a busca é de código"
+    },
+    "matriz": {
+     "teste": "tests/test_catalogo_chat.py::test_pedido_longo_de_nomes_acha_a_consulta_do_mesmo_assunto"
+    }
+   }
+  },
+  {
+   "id": "E12-ponto-e-virgula-barrado",
+   "titulo": "A checagem P06 reprovava a proposta inteira por um ponto e vírgula numa descrição de caso (falso positivo)",
+   "visto_em": "EV-0037",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_evolucao.py::test_pontuacao_comum_nao_e_ataque_mas_ataque_continua_barrado"
+    },
+    "checagem_fixa": {
+     "checagem": "P06"
+    },
+    "licao": {
+     "nao_se_aplica": "o defeito era da checagem e não do que o Agent escreveu: ela é que foi corrigida"
+    },
+    "matriz": {
+     "matriz": "pontuação comum não é ataque"
+    }
+   }
+  },
+  {
+   "id": "E13-pergunta-de-dado-caiu-na-ajuda",
+   "titulo": "“Qual número do orçamento que será devolvido hoje?” virou resposta de ajuda e nunca entrou na fila dos Agents",
+   "visto_em": "chat de 27/11 (12:17)",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_catalogo_chat.py::test_pergunta_com_periodo_e_pedido_de_dado_vai_para_a_fila_dos_agents"
+    },
+    "checagem_fixa": {
+     "nao_se_aplica": "é do roteamento do chat, não de uma proposta de consulta"
+    },
+    "licao": {
+     "nao_se_aplica": "os Agents só recebem a pergunta depois que ela entra na fila"
+    },
+    "matriz": {
+     "teste": "tests/test_catalogo_chat.py::test_ajuda_que_admite_nao_saber_nao_conta_como_resposta"
+    }
+   }
+  },
+  {
+   "id": "E14-numero-do-orcamento-era-contagem",
+   "titulo": "“Qual número do orçamento…” (o identificador) foi lido como pedido de contagem e a C15 barrou a consulta de listar (falso positivo)",
+   "visto_em": "proposta do dia 27/11 (C15)",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_catalogo_chat.py::test_numero_do_orcamento_e_lista_e_numero_de_orcamentos_e_contagem"
+    },
+    "checagem_fixa": {
+     "checagem": "C15"
+    },
+    "licao": {
+     "licao": "L09-tipo-da-pergunta"
+    },
+    "matriz": {
+     "matriz": "número DO orçamento lista"
+    }
+   }
+  },
+  {
+   "id": "E15-criado-confundido-com-retirada",
+   "titulo": "“Quantos orçamentos foram criados hoje?” não tinha filtro de data de criação: respondia “nenhum” olhando retirada/devolução",
+   "visto_em": "chat de 27/11 (12:29)",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "arquivo": "../versao-real/frontend/src/lib/ferramentas.test.ts"
+    },
+    "checagem_fixa": {
+     "checagem": "ORC-PERIODO"
+    },
+    "licao": {
+     "licao": "L03-orc-datas"
+    },
+    "matriz": {
+     "teste": "tests/test_ferramentas.py::test_cada_modulo_tem_as_suas_datas_e_a_de_criacao_nao_se_mistura_com_retirada"
+    }
+   }
+  },
+  {
+   "id": "E16-valor-que-varia-virou-consulta-estatica",
+   "titulo": "“Quantos orçamentos foram pagos no Pix?” gerou a consulta orcamentos_pagos_no_pix: a pergunta do cartão pediria outra consulta (e o próprio exemplo não era achado)",
+   "visto_em": "relatório EV de 27/11 (12:42)",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_evolucao.py::test_c16_c17_valor_que_varia_e_parametro_nao_parte_da_consulta"
+    },
+    "checagem_fixa": {
+     "checagem": "C16"
+    },
+    "licao": {
+     "licao": "L10-valor-que-varia-e-parametro"
+    },
+    "matriz": {
+     "matriz": "valor que varia vira parâmetro"
+    }
+   }
+  },
+  {
+   "id": "E17-total-geral-dito-como-filtrado",
+   "titulo": "“Quantos orçamentos foram pagos no boleto?” respondeu “não encontrei” e, repetida, “foram 3 pagos no boleto”: nenhuma ferramenta fixa filtra por forma de pagamento e o modelo repetiu o filtro da pergunta sobre o total geral",
+   "visto_em": "chat de 27/11 (12:55)",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_api.py::test_pergunta_por_forma_de_pagamento_sem_consulta_aprovada_nao_vira_total_geral"
+    },
+    "checagem_fixa": {
+     "nao_se_aplica": "é do chat, não de uma proposta de consulta"
+    },
+    "licao": {
+     "nao_se_aplica": "os Agents não escrevem o chat; a pergunta cai na fila deles"
+    },
+    "matriz": {
+     "teste": "tests/test_api.py::test_pergunta_por_forma_de_pagamento_sem_consulta_aprovada_nao_vira_total_geral"
+    }
+   }
+  },
+  {
+   "id": "E18-filtro-da-pergunta-ignorado",
+   "titulo": "“Quantos orçamentos foram pagos no cartão essa semana?” respondeu “5 no cartão”: a consulta não filtrava o período (nem a situação) e a resposta passou o total geral",
+   "visto_em": "chat de 27/11 (12:58)",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_catalogo_chat.py::test_consulta_que_nao_filtra_o_periodo_nao_devolve_o_total_geral"
+    },
+    "checagem_fixa": {
+     "checagem": "C19"
+    },
+    "licao": {
+     "licao": "L10-valor-que-varia-e-parametro"
+    },
+    "matriz": {
+     "matriz": "cobertura dos exemplos"
+    }
+   }
+  },
+  {
+   "id": "E19-verbo-da-data-ignorado",
+   "titulo": "Achado pelo teste de mutação: consulta de “criados hoje” filtrando pela data de retirada passava em todas as checagens (o verbo da pergunta não mandava na data usada)",
+   "visto_em": "teste de mutação de 27/11",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_mutacao.py::test_verbo_da_pergunta_manda_na_data_do_periodo"
+    },
+    "checagem_fixa": {
+     "checagem": "C19"
+    },
+    "licao": {
+     "licao": "L03-orc-datas"
+    },
+    "matriz": {
+     "teste": "tests/test_mutacao.py::test_nenhuma_quebra_passa_sem_ser_percebida"
+    }
+   }
+  },
+  {
+   "id": "E20-furos-achados-pela-matriz-do-esquema",
+   "titulo": "Achados pela matriz gerada: “total de X” lido como lista, “ontem/este mês” fora do período na busca, data escolhida sozinha sem verbo, valor de outro módulo (“orçamentos no Pix”) ignorado, empate inofensivo entre consultas do mesmo módulo, bool (“ativos”) ignorado",
+   "visto_em": "matriz do esquema de 27/11",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_matriz_esquema.py::test_nenhuma_pergunta_gerada_falha"
+    },
+    "checagem_fixa": {
+     "checagem": "C19"
+    },
+    "licao": {
+     "licao": "L10-valor-que-varia-e-parametro"
+    },
+    "matriz": {
+     "teste": "tests/test_matriz_esquema.py::test_consulta_que_nao_filtra_algo_do_pedido_nunca_responde_o_total_geral"
+    }
+   }
+  },
+  {
+   "id": "E21-tester-erra-conta-com-forma-e-periodo",
+   "titulo": "O Tester (e o Analista) esperou total 1 para “pagos no Pix nesta semana” quando o único Pix foi pago na semana seguinte; a contagem independente só entendia filtros de data, então não corrigiu e a proposta correta ficou “reprovar”",
+   "visto_em": "EV-0044 (T02 do Tester, 27/11)",
+   "status": "fechado",
+   "camadas": {
+    "codigo": {
+     "teste": "tests/test_evolucao.py::test_total_da_janela_com_forma_e_periodo"
+    },
+    "checagem_fixa": {
+     "checagem": "T02"
+    },
+    "licao": {
+     "licao": "L07-expectativas-do-analista"
+    },
+    "matriz": {
+     "teste": "tests/test_evolucao.py::test_refaz_total_errado_de_forma_e_periodo"
+    }
+   }
+  }
+ ]
 }

@@ -176,7 +176,8 @@ def test_mudar_o_esperado_depois_de_selado_e_recusado():
 def test_esperado_errado_do_tester_aparece_como_falha_e_aviso():
     errado = [{"descricao": "conta errado de propósito", "tipo": "execucao", "sessao": "admin", "params": {"perfil": "admin"}, "esperado": {"total": 5}}]
     av = Tester(Modelo(casos=errado)).avaliar(PROPOSTA, pacote())
-    assert av["veredito"] == "revisar_com_atencao" and av["resumo"]["falharam"] == 1  # só o modelo do Tester esperou isso: o Master confere
+    # a conta errada do Tester é refeita por contagem independente nos dados de teste (E21) e a troca vai para o relatório: não reprova nem fica como falha
+    assert av["resumo"]["falharam"] == 0 and any("refeito" in r for r in av["ruido"]["reclassificados"])
 
 
 def test_implementacao_que_diverge_do_analista_reprova():
@@ -521,3 +522,26 @@ def test_c16_c17_valor_que_varia_e_parametro_nao_parte_da_consulta():
     # parâmetro que varia, mas exemplo preso a uma palavra que só existe nele: C16 bloqueia
     preso = _spec_pix(exemplos=["quantos orçamentos foram pagos no pix?"], palavras_chave=["pagamentos", "pix"])
     assert [a for a in checagens.checar_spec(preso) if a["codigo"] == "C16" and a["gravidade"] == "bloqueio"]
+
+
+def _spec_forma_e_periodo():
+    return {"nome": "contar_pagamentos_por_forma_e_periodo", "descricao": "d", "permissao": "financeiro.ver", "entidade": "pagamentos", "operacao": "contar",
+            "filtros": [{"campo": "forma", "op": "igual", "parametro": "forma"}, {"campo": "pago_em", "op": "maior_igual", "parametro": "de"}, {"campo": "pago_em", "op": "menor_igual", "parametro": "ate"}],
+            "parametros": {"forma": {"tipo": "enum", "valores": ["pix", "boleto"], "obrigatorio": True}, "de": {"tipo": "data", "obrigatorio": True}, "ate": {"tipo": "data", "obrigatorio": True}}}
+
+
+def test_total_da_janela_com_forma_e_periodo():
+    """EV-0044: o único Pix dos dados de teste foi pago em 30/11, depois da semana de hoje (26/11): o total da semana é 0, e em novembro todo é 1."""
+    from evolucao.agentes import _total_da_janela
+    s = _spec_forma_e_periodo()
+    assert _total_da_janela(s, {"forma": "pix", "de": "2026-11-23", "ate": "2026-11-29"}) == 0
+    assert _total_da_janela(s, {"forma": "pix", "de": "2026-11-01", "ate": "2026-11-30"}) == 1
+    assert _total_da_janela(s, {"forma": "boleto", "de": "2026-11-01", "ate": "2026-11-30"}) == 0
+    assert _total_da_janela(s, {"de": "2026-11-01", "ate": "2026-11-30"}) is None  # forma obrigatória faltando: não inventa
+
+
+def test_refaz_total_errado_de_forma_e_periodo():
+    from evolucao.agentes import _caso, refazer_totais_de_janela
+    c = _caso("proposta", "execucao", "pix nesta semana", {"total": 1}, "master", {"forma": "pix", "de": "2026-11-23", "ate": "2026-11-29"})
+    avisos = refazer_totais_de_janela(_spec_forma_e_periodo(), [c])
+    assert c["esperado"] == {"total": 0} and "refeito" in avisos[0]

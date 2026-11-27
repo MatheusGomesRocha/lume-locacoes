@@ -181,6 +181,28 @@ class EvolucaoController extends Controller
         return response()->json($p->fresh()->paraFront());
     }
 
+    /**
+     * Prévia com dados REAIS: devolve o que o chat entenderia de cada pergunta de exemplo (parâmetros, com a data de hoje de quem usa).
+     * Quem executa a consulta sobre os dados é o front, pela MESMA leitura das telas que o chat usa: assim a prévia é igual ao que o chat vai
+     * responder e respeita as permissões de quem olha. A API de IA só recebe a spec e texto/datas, nunca dados do sistema.
+     */
+    public function previaParametros(Request $request, string $codigo): JsonResponse
+    {
+        $dados = $request->validate(['hoje' => ['required', 'date_format:Y-m-d']]);
+        $p = EvolucaoProposta::where('codigo', $codigo)->firstOrFail();
+        $spec = $p->relatorio['pacote']['spec'] ?? null;
+        abort_if(! $spec, 422, 'Esta proposta não tem consulta.');
+        try {
+            $resposta = $this->api(60)->post('/evolucao/previa-parametros', ['spec' => $spec, 'hoje' => $dados['hoje'], 'perguntas' => []]);
+        } catch (Throwable $e) {
+            Log::error('Evolução: prévia falhou: ' . $e->getMessage());
+
+            return response()->json(['message' => 'Não foi possível falar com a API de IA agora.'], 502);
+        }
+
+        return $resposta->successful() ? response()->json($resposta->json()) : response()->json(['message' => 'A API de IA não respondeu como esperado.'], 502);
+    }
+
     public function desativar(string $codigo): JsonResponse
     {
         $p = EvolucaoProposta::where('codigo', $codigo)->where('status', 'aprovada')->where('ativa', true)->firstOrFail();

@@ -76,6 +76,7 @@ Route::middleware('autenticado')->group(function () {
         Route::post('evolucao/revisar', [EvolucaoController::class, 'revisar']);
         Route::get('evolucao/aprovador', [EvolucaoController::class, 'aprovador']);
         Route::post('evolucao/{codigo}/conferir', [EvolucaoController::class, 'conferir']);
+        Route::post('evolucao/{codigo}/previa-parametros', [EvolucaoController::class, 'previaParametros']);
         Route::post('evolucao/{codigo}/decidir', [EvolucaoController::class, 'decidir']);
         Route::post('evolucao/{codigo}/desativar', [EvolucaoController::class, 'desativar']);
     });
