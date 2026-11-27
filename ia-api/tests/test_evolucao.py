@@ -374,3 +374,26 @@ def test_caso_de_contagem_rotulado_como_busca_agora_passa_em_vez_de_virar_aviso(
     av = Tester(Modelo(casos=mal_rotulado)).avaliar(PROPOSTA, pacote())
     assert av["resumo"]["falharam"] == 0 and len(av["ruido"]["reclassificados"]) == 1
     assert "corrigido" in __import__("evolucao.relatorio", fromlist=["x"]).montar("EV-1", PROPOSTA, pacote(), av)["texto"]
+
+
+def test_periodo_relativo_com_parametro_chamado_pelo_numero_da_pergunta_e_consertado():
+    from evolucao.agentes import consertar_janela, normalizar_proposta, normalizar_spec
+    # o erro real do Analista: parâmetro "7" (o número da pergunta) em vez de "dias"
+    filtros, params, trocados, avisos = consertar_janela([{"campo": "criado_em", "op": "ultimos_dias", "parametro": "7"}], {"7": {"tipo": "numero", "valores": [], "obrigatorio": True}})
+    assert filtros[0]["parametro"] == "dias" and list(params) == ["dias"] and trocados == {"7": "dias"} and "se chamava “7”" in avisos[0]
+    # o Construtor esqueceu de declarar o parâmetro: o código declara (numero, obrigatório)
+    _, params, _, _ = consertar_janela([{"campo": "criado_em", "op": "ultimos_dias", "parametro": "7"}], {})
+    assert params == {"dias": {"tipo": "numero", "valores": [], "obrigatorio": True}}
+    # o número escrito direto no filtro vira parâmetro, e o tipo errado (data) vira numero
+    filtros, params, _, avisos = consertar_janela([{"campo": "criado_em", "op": "ultimos_dias", "valor": 7}], {})
+    assert filtros == [{"campo": "criado_em", "op": "ultimos_dias", "parametro": "dias"}] and "fixo" in avisos[0]
+    assert consertar_janela([{"campo": "criado_em", "op": "ultimos_dias", "parametro": "dias"}], {"dias": {"tipo": "data", "valores": [], "obrigatorio": True}})[1]["dias"]["tipo"] == "numero"
+    # filtros normais não são tocados
+    assert consertar_janela([{"campo": "tipo", "op": "igual", "parametro": "tipo"}], {"tipo": {"tipo": "enum"}})[2:] == ({}, [])
+
+    spec, notas = normalizar_spec({"nome": "x", "entidade": "clientes", "filtros": [{"campo": "criado_em", "op": "ultimos_dias", "parametro": "7"}], "parametros": {}})
+    assert spec["filtros"][0]["parametro"] == "dias" and "dias" in spec["parametros"] and any(n.startswith("corrigido:") for n in notas)
+    prop = normalizar_proposta({"titulo": "t", "decisao": "criar_consulta", "entidade": "clientes", "operacao": "contar",
+                                "filtros": [{"campo": "criado_em", "op": "ultimos_dias", "parametro": "7"}], "parametros": {"7": {"tipo": "numero", "obrigatorio": True}},
+                                "expectativas": [{"descricao": "d", "params": {"7": 7}, "esperado_total": 2}], "perguntas": ["q"]}, {"q"})
+    assert prop["expectativas"][0]["params"] == {"dias": 7}  # a expectativa acompanha o nome novo
