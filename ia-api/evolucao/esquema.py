@@ -32,20 +32,22 @@ ESQUEMA: dict[str, dict] = {
         "status": _c("enum", "Status", ["rascunho", "enviado", "aprovado", "finalizado", "cancelado"]),
         "data_retirada": _c("data", "Data de retirada"), "data_devolucao": _c("data", "Data de devolução"),
         "diarias": _c("numero", "Diárias"), "desconto": _c("numero", "Desconto"), "total": _c("numero", "Total"),
+        "criado_em": _c("data", "Criado em"),
     }},
     "pagamentos": {"rotulo": "Cobranças", "permissao": "financeiro.ver", "so_admin": False, "campos": {
         "orcamento_numero": _c("texto", "Orçamento"), "valor": _c("numero", "Valor"), "vencimento": _c("data", "Vencimento"),
         "pago_em": _c("data", "Pago em"), "status": _c("enum", "Situação", ["pendente", "pago", "cancelado"]),
-        "forma": _c("enum", "Forma", ["pix", "cartao", "boleto", "dinheiro"]),
+        "forma": _c("enum", "Forma", ["pix", "cartao", "boleto", "dinheiro"]), "criado_em": _c("data", "Criado em"),
     }},
     "usuarios": {"rotulo": "Usuários do sistema", "permissao": "usuarios.ver", "so_admin": True, "campos": {
         "nome": _c("texto", "Nome"), "papel": _c("enum", "Perfil", list(PAPEIS)), "grupo_nome": _c("texto", "Grupo"),
-        "ativo": _c("bool", "Ativo"),
+        "ativo": _c("bool", "Ativo"), "criado_em": _c("data", "Cadastrado em"),
         "email": _c("texto", "E-mail", nivel="pessoal"), "senha": _c("texto", "Senha", nivel="secreto"),
     }},
     "grupos": {"rotulo": "Grupos de permissão", "permissao": "usuarios.ver", "so_admin": True, "campos": {
         "nome": _c("texto", "Nome do grupo"), "descricao": _c("texto", "Descrição"), "sistema": _c("bool", "Grupo do sistema"),
         "usuarios_count": _c("numero", "Usuários no grupo"), "permissoes_count": _c("numero", "Quantidade de permissões"),
+        "criado_em": _c("data", "Criado em"),
     }},
 }
 
@@ -75,15 +77,15 @@ HOJE_TESTE = "2026-11-26"
 
 DADOS_TESTE: dict[str, list[dict]] = {
     "grupos": [
-        {"nome": "Master", "descricao": "Acesso total", "sistema": True, "usuarios_count": 1, "permissoes_count": 30},
-        {"nome": "Administração", "descricao": None, "sistema": True, "usuarios_count": 1, "permissoes_count": 20},
-        {"nome": "Vendas", "descricao": "Time comercial", "sistema": False, "usuarios_count": 2, "permissoes_count": 8},
+        {"nome": "Master", "descricao": "Acesso total", "sistema": True, "usuarios_count": 1, "permissoes_count": 30, "criado_em": "2026-01-10"},
+        {"nome": "Administração", "descricao": None, "sistema": True, "usuarios_count": 1, "permissoes_count": 20, "criado_em": "2026-01-10"},
+        {"nome": "Vendas", "descricao": "Time comercial", "sistema": False, "usuarios_count": 2, "permissoes_count": 8, "criado_em": "2026-11-18"},
     ],
     "usuarios": [
-        {"nome": "Matheus Gomes", "papel": "master", "grupo_nome": "Master", "ativo": True, "email": "m@x.com", "senha": "hash1"},
-        {"nome": "Ana Lima", "papel": "admin", "grupo_nome": "Administração", "ativo": True, "email": "a@x.com", "senha": "hash2"},
-        {"nome": "Bruno Reis", "papel": "usuario", "grupo_nome": "Vendas", "ativo": True, "email": "b@x.com", "senha": "hash3"},
-        {"nome": "Carla Dias", "papel": "usuario", "grupo_nome": "Vendas", "ativo": False, "email": "c@x.com", "senha": "hash4"},
+        {"nome": "Matheus Gomes", "papel": "master", "grupo_nome": "Master", "ativo": True, "email": "m@x.com", "senha": "hash1", "criado_em": "2026-01-10"},
+        {"nome": "Ana Lima", "papel": "admin", "grupo_nome": "Administração", "ativo": True, "email": "a@x.com", "senha": "hash2", "criado_em": "2026-02-03"},
+        {"nome": "Bruno Reis", "papel": "usuario", "grupo_nome": "Vendas", "ativo": True, "email": "b@x.com", "senha": "hash3", "criado_em": "2026-11-20"},
+        {"nome": "Carla Dias", "papel": "usuario", "grupo_nome": "Vendas", "ativo": False, "email": "c@x.com", "senha": "hash4", "criado_em": "2026-11-26"},
     ],
     "clientes": [
         {"nome": "Maria Souza", "tipo": "PF", "cidade": "Fortaleza", "observacoes": None, "criado_em": "2026-11-25", "documento": "111", "email": "ms@x.com", "telefone": "8599"},
@@ -97,15 +99,15 @@ DADOS_TESTE: dict[str, list[dict]] = {
         {"codigo": "VR-09", "nome": "Varal de Luzes", "categoria": "Iluminação", "valor_diaria": 60.0, "valor_reposicao": 300.0, "quantidade": 5, "ativo": False, "criado_em": "2026-11-26"},
     ],
     "orcamentos": [
-        {"numero": "ORC-2026-0001", "cliente_nome": "Maria Souza", "evento": "Casamento", "status": "aprovado", "data_retirada": "2026-11-26", "data_devolucao": "2026-11-27", "diarias": 1, "desconto": 0.0, "total": 160.0},
-        {"numero": "ORC-2026-0002", "cliente_nome": "Padaria Sol", "evento": "Inauguração", "status": "rascunho", "data_retirada": "2026-12-05", "data_devolucao": "2026-12-06", "diarias": 1, "desconto": 10.0, "total": 300.0},
-        {"numero": "ORC-2026-0003", "cliente_nome": "Mariana Albuquerque", "evento": "Aniversário", "status": "cancelado", "data_retirada": "2026-10-10", "data_devolucao": "2026-10-11", "diarias": 1, "desconto": 0.0, "total": 90.0},
-        {"numero": "ORC-2026-0004", "cliente_nome": "Maria Souza", "evento": "Formatura", "status": "aprovado", "data_retirada": "2026-12-20", "data_devolucao": "2026-12-22", "diarias": 2, "desconto": 0.0, "total": 500.0},
+        {"numero": "ORC-2026-0001", "cliente_nome": "Maria Souza", "evento": "Casamento", "status": "aprovado", "data_retirada": "2026-11-26", "data_devolucao": "2026-11-27", "diarias": 1, "desconto": 0.0, "total": 160.0, "criado_em": "2026-11-20"},
+        {"numero": "ORC-2026-0002", "cliente_nome": "Padaria Sol", "evento": "Inauguração", "status": "rascunho", "data_retirada": "2026-12-05", "data_devolucao": "2026-12-06", "diarias": 1, "desconto": 10.0, "total": 300.0, "criado_em": "2026-11-24"},
+        {"numero": "ORC-2026-0003", "cliente_nome": "Mariana Albuquerque", "evento": "Aniversário", "status": "cancelado", "data_retirada": "2026-10-10", "data_devolucao": "2026-10-11", "diarias": 1, "desconto": 0.0, "total": 90.0, "criado_em": "2026-10-05"},
+        {"numero": "ORC-2026-0004", "cliente_nome": "Maria Souza", "evento": "Formatura", "status": "aprovado", "data_retirada": "2026-12-20", "data_devolucao": "2026-12-22", "diarias": 2, "desconto": 0.0, "total": 500.0, "criado_em": "2026-11-26"},
     ],
     "pagamentos": [
-        {"orcamento_numero": "ORC-2026-0001", "valor": 160.0, "vencimento": "2026-11-20", "pago_em": None, "status": "pendente", "forma": None},
-        {"orcamento_numero": "ORC-2026-0004", "valor": 250.0, "vencimento": "2026-12-01", "pago_em": "2026-11-30", "status": "pago", "forma": "pix"},
-        {"orcamento_numero": "ORC-2026-0004", "valor": 250.0, "vencimento": "2026-12-20", "pago_em": None, "status": "pendente", "forma": None},
+        {"orcamento_numero": "ORC-2026-0001", "valor": 160.0, "vencimento": "2026-11-20", "pago_em": None, "status": "pendente", "forma": None, "criado_em": "2026-11-20"},
+        {"orcamento_numero": "ORC-2026-0004", "valor": 250.0, "vencimento": "2026-12-01", "pago_em": "2026-11-30", "status": "pago", "forma": "pix", "criado_em": "2026-11-26"},
+        {"orcamento_numero": "ORC-2026-0004", "valor": 250.0, "vencimento": "2026-12-20", "pago_em": None, "status": "pendente", "forma": None, "criado_em": "2026-11-26"},
     ],
 }
 

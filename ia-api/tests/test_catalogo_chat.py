@@ -63,7 +63,7 @@ def test_evolucao_devolve_relatorios_com_ids_a_partir_do_numero(cliente, monkeyp
 
     monkeypatch.setattr(main, "gerar_relatorios", falso)
     r = cliente.post("/evolucao/propor", json={"perguntas": [{"pergunta": "quantos usuários master?"}], "catalogo": [SPEC], "proximo_numero": 7}).json()
-    assert r == {"relatorios": [{"id": "EV-0007"}]} and visto["ids"] == ["EV-0007", "EV-0008"] and len(visto["catalogo"]) == 1
+    assert r == {"relatorios": [{"id": "EV-0007"}], "ignoradas": []} and visto["ids"] == ["EV-0007", "EV-0008"] and len(visto["catalogo"]) == 1
 
 
 # --- as mesmas respostas que o executor do front (TypeScript) precisa dar: o arquivo mora no front (a demo é outro repositório) ---

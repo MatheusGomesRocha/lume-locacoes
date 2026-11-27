@@ -19,6 +19,7 @@ from app import agente as conversa_agente
 from app import consumo, ferramentas
 from app.conversa import resposta_de_conversa
 from app.cache import cache_do_ambiente, chave_da_conversa, versao_do_conteudo
+from app.impossivel import pergunta_impossivel
 from app.busca import BaseConhecimento, Contexto, Resultado, pede_dados_do_sistema
 from app.semantica import NOTA_LEXICAL_CONFIANTE, criar_indice_do_ambiente, vencedor_confiavel
 from evolucao import checagens
@@ -231,6 +232,9 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
         texto = redigir_com_dados(provedor_llm, limitador_llm, pergunta, historico, resultados, dados.hoje)
         return _resposta_agente(texto or "Não consegui montar a resposta agora. Tente de novo em instantes.", encontrou=texto is not None, gerada_por_llm=texto is not None)
 
+    impossivel = None if ferramentas.pede_acao(pergunta) else pergunta_impossivel(pergunta)
+    if impossivel:  # o sistema não guarda esse dado: responde já, sem modelo, e NÃO entra na fila dos Agents (não há consulta que resolva)
+        return _resposta_agente(impossivel["resposta"], impossivel=True, gerada_por_llm=False)
     if ferramentas.pede_acao(pergunta) and ferramentas.fala_de_usuario_do_sistema(pergunta):
         return _resposta_agente(TEXTO_USUARIO_DO_SISTEMA)  # antes do modelo: não depende dele nem gasta cota
     if dados.catalogo and not ferramentas.pede_acao(pergunta):  # uma consulta aprovada pelo Master tem prioridade sobre perguntar ao modelo
@@ -293,12 +297,16 @@ def evolucao_propor(dados: EvolucaoIn):
     """Agents 1, 2 e 3 sobre as perguntas sem resposta. Não guarda nada: devolve os relatórios para o Laravel/front guardarem e o Master decidir."""
     if provedor_llm is None:
         raise HTTPException(status_code=503, detail="Os Agents precisam do modelo (GEMINI_API_KEY) e ele não está configurado.")
+    ignoradas = [{"pergunta": p.pergunta, "motivo": f"o sistema não guarda {i['atributo']}: nenhuma consulta responde"} for p in dados.perguntas if (i := pergunta_impossivel(p.pergunta))]
+    validas = [p.model_dump() for p in dados.perguntas if not pergunta_impossivel(p.pergunta)]
+    if not validas:
+        return {"relatorios": [], "ignoradas": ignoradas}
     try:
-        relatorios = gerar_relatorios(provedor_llm, limitador_llm, [p.model_dump() for p in dados.perguntas], specs_validas(dados.catalogo),
+        relatorios = gerar_relatorios(provedor_llm, limitador_llm, validas, specs_validas(dados.catalogo),
                                       lambda i: f"EV-{dados.proximo_numero + i:04d}")
     except Exception as e:  # ErroAgente, cota, rede: o Master vê o motivo em vez de um erro mudo
         raise HTTPException(status_code=502, detail=f"Os Agents não conseguiram terminar: {str(e)[:200]}") from None
-    return {"relatorios": relatorios}
+    return {"relatorios": relatorios, "ignoradas": ignoradas}
 
 
 class ChecarIn(BaseModel):

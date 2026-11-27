@@ -37,10 +37,10 @@ export interface SpecConsulta {
 const ENTIDADES: Record<string, { soAdmin: boolean; campos: Record<string, TipoCampo> }> = {
   clientes: { soAdmin: false, campos: { nome: 'texto', tipo: 'enum', cidade: 'texto', observacoes: 'texto', criado_em: 'data' } },
   produtos: { soAdmin: false, campos: { codigo: 'texto', nome: 'texto', categoria: 'texto', valor_diaria: 'numero', valor_reposicao: 'numero', quantidade: 'numero', ativo: 'bool', criado_em: 'data' } },
-  orcamentos: { soAdmin: false, campos: { numero: 'texto', cliente_nome: 'texto', evento: 'texto', status: 'enum', data_retirada: 'data', data_devolucao: 'data', diarias: 'numero', desconto: 'numero', total: 'numero' } },
-  pagamentos: { soAdmin: false, campos: { orcamento_numero: 'texto', valor: 'numero', vencimento: 'data', pago_em: 'data', status: 'enum', forma: 'enum' } },
-  usuarios: { soAdmin: true, campos: { nome: 'texto', papel: 'enum', grupo_nome: 'texto', ativo: 'bool' } },
-  grupos: { soAdmin: true, campos: { nome: 'texto', descricao: 'texto', sistema: 'bool', usuarios_count: 'numero', permissoes_count: 'numero' } },
+  orcamentos: { soAdmin: false, campos: { numero: 'texto', cliente_nome: 'texto', evento: 'texto', status: 'enum', data_retirada: 'data', data_devolucao: 'data', diarias: 'numero', desconto: 'numero', total: 'numero', criado_em: 'data' } },
+  pagamentos: { soAdmin: false, campos: { orcamento_numero: 'texto', valor: 'numero', vencimento: 'data', pago_em: 'data', status: 'enum', forma: 'enum', criado_em: 'data' } },
+  usuarios: { soAdmin: true, campos: { nome: 'texto', papel: 'enum', grupo_nome: 'texto', ativo: 'bool', criado_em: 'data' } },
+  grupos: { soAdmin: true, campos: { nome: 'texto', descricao: 'texto', sistema: 'bool', usuarios_count: 'numero', permissoes_count: 'numero', criado_em: 'data' } },
 }
 
 export class ErroConsulta extends Error {
@@ -177,13 +177,13 @@ export async function carregarEntidade(api: Api, entidade: string): Promise<Linh
     case 'produtos':
       return (await api.produtos.listar()).map((p) => ({ codigo: p.codigo, nome: p.nome, categoria: p.categoria, valor_diaria: p.valor_diaria, valor_reposicao: p.valor_reposicao, quantidade: p.quantidade, ativo: p.ativo, criado_em: diaLocal(p.criado_em) }))
     case 'orcamentos':
-      return (await api.orcamentos.listar()).map((o) => ({ numero: o.numero, cliente_nome: o.cliente?.nome ?? null, evento: o.evento, status: o.status, data_retirada: o.data_retirada, data_devolucao: o.data_devolucao, diarias: o.diarias, desconto: o.desconto, total: o.total }))
+      return (await api.orcamentos.listar()).map((o) => ({ numero: o.numero, cliente_nome: o.cliente?.nome ?? null, evento: o.evento, status: o.status, data_retirada: o.data_retirada, data_devolucao: o.data_devolucao, diarias: o.diarias, desconto: o.desconto, total: o.total, criado_em: diaLocal(o.criado_em) }))
     case 'pagamentos':
-      return (await api.pagamentos.listar('todos')).map((p) => ({ orcamento_numero: p.orcamento?.numero ?? null, valor: p.valor, vencimento: p.vencimento, pago_em: p.pago_em, status: p.status, forma: p.forma }))
+      return (await api.pagamentos.listar('todos')).map((p) => ({ orcamento_numero: p.orcamento?.numero ?? null, valor: p.valor, vencimento: p.vencimento, pago_em: p.pago_em, status: p.status, forma: p.forma, criado_em: diaLocal(p.criado_em) }))
     case 'usuarios':
-      return (await api.usuarios.listar()).map((u) => ({ nome: u.nome, papel: u.papel, grupo_nome: u.grupo?.nome ?? null, ativo: u.ativo }))
+      return (await api.usuarios.listar()).map((u) => ({ nome: u.nome, papel: u.papel, grupo_nome: u.grupo?.nome ?? null, ativo: u.ativo, criado_em: diaLocal(u.criado_em) }))
     case 'grupos':
-      return (await api.grupos.listar()).map((g) => ({ nome: g.nome, descricao: g.descricao ?? null, sistema: g.sistema, usuarios_count: g.usuarios_count, permissoes_count: g.permissoes.length }))
+      return (await api.grupos.listar()).map((g) => ({ nome: g.nome, descricao: g.descricao ?? null, sistema: g.sistema, usuarios_count: g.usuarios_count, permissoes_count: g.permissoes.length, criado_em: diaLocal(g.criado_em) }))
     default:
       throw new ErroConsulta('entidade desconhecida', 'erro')
   }

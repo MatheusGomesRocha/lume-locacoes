@@ -17,6 +17,7 @@ class GrupoController extends Controller
         return [
             'id' => $g->id, 'nome' => $g->nome, 'descricao' => $g->descricao, 'permissoes' => Acesso::limpar($g->permissoes ?? []),
             'sistema' => $g->sistema, 'usuarios_count' => $g->usuarios_count ?? $g->usuarios()->count(),
+            'criado_em' => $g->criado_em,
         ];
     }
 

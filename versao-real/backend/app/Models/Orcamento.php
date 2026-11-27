@@ -22,7 +22,7 @@ class Orcamento extends Model
     // As datas ficam como texto AAAA-MM-DD de propósito: comparar texto é igual em SQLite e MySQL.
     protected $casts = ['desconto' => 'float', 'total' => 'float'];
 
-    protected $appends = ['diarias'];
+    protected $appends = ['diarias', 'criado_em'];
 
     public function getDiariasAttribute(): int
     {
@@ -42,5 +42,11 @@ class Orcamento extends Model
     public function pagamentos(): HasMany
     {
         return $this->hasMany(Pagamento::class);
+    }
+
+    /** O front usa `criado_em` (data do cadastro); o banco guarda `created_at`. */
+    public function getCriadoEmAttribute(): ?string
+    {
+        return $this->created_at?->toIso8601String();
     }
 }

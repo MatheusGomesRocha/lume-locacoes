@@ -17,7 +17,7 @@ class Pagamento extends Model
 
     protected $casts = ['valor' => 'float'];
 
-    protected $appends = ['situacao'];
+    protected $appends = ['situacao', 'criado_em'];
 
     /** Pendente com vencimento passado aparece como "atrasado" (não existe como status gravado). */
     public function getSituacaoAttribute(): string
@@ -32,5 +32,11 @@ class Pagamento extends Model
     public function orcamento(): BelongsTo
     {
         return $this->belongsTo(Orcamento::class);
+    }
+
+    /** O front usa `criado_em` (data do cadastro); o banco guarda `created_at`. */
+    public function getCriadoEmAttribute(): ?string
+    {
+        return $this->created_at?->toIso8601String();
     }
 }

@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Usuario extends Model
 {
+    protected $appends = ['criado_em'];
+
     public const MASTER = 'master';
 
     public const ADMIN = 'admin';
@@ -42,7 +44,14 @@ class Usuario extends Model
             'papel' => $this->papel,
             'grupo_id' => $this->grupo_id,
             'grupo' => $this->grupo ? ['id' => $this->grupo->id, 'nome' => $this->grupo->nome] : null,
+            'criado_em' => $this->criado_em,
             'ativo' => $this->ativo,
         ];
+    }
+
+    /** O front usa `criado_em` (data do cadastro); o banco guarda `created_at`. */
+    public function getCriadoEmAttribute(): ?string
+    {
+        return $this->created_at?->toIso8601String();
     }
 }
