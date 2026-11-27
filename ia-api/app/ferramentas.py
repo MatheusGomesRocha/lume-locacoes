@@ -47,21 +47,31 @@ CONSULTAS: dict[str, dict] = {d["name"]: d for d in [
     _declaracao("consultar_orcamentos", "Lista e conta orçamentos, com a soma dos totais. Use para 'quantos orçamentos aprovados', 'orçamentos da Ana', 'eventos de dezembro'.", {
         "status": {"type": "STRING", "enum": STATUS_ORCAMENTO, "description": "Filtrar por status."},
         "busca": _texto("Parte do nome do cliente, do evento ou do número do orçamento."),
-        "retirada_de": _texto("Data inicial da retirada, AAAA-MM-DD."),
+        "criado_de": _texto("Data inicial de quando o orçamento foi CRIADO no sistema, AAAA-MM-DD. Use para 'orçamentos criados/feitos hoje', 'criados esta semana'."),
+        "criado_ate": _texto("Data final de quando o orçamento foi CRIADO, AAAA-MM-DD."),
+        "retirada_de": _texto("Data inicial da RETIRADA (quando o cliente retira o material), AAAA-MM-DD. Use para 'retiram hoje', 'retiradas da semana'."),
         "retirada_ate": _texto("Data final da retirada, AAAA-MM-DD."),
         "devolucao_de": _texto("Data inicial da DEVOLUÇÃO, AAAA-MM-DD. Use para 'o que volta/devolve hoje' ou 'devoluções da semana'."),
         "devolucao_ate": _texto("Data final da DEVOLUÇÃO, AAAA-MM-DD."),
     }),
-    _declaracao("consultar_clientes", "Lista e conta clientes.", {"busca": _texto("Parte do nome, documento, e-mail ou cidade.")}),
+    _declaracao("consultar_clientes", "Lista e conta clientes.", {
+        "busca": _texto("Parte do nome, documento, e-mail ou cidade."),
+        "criado_de": _texto("Data inicial do CADASTRO do cliente, AAAA-MM-DD. Use para 'clientes cadastrados hoje/esta semana'."),
+        "criado_ate": _texto("Data final do cadastro, AAAA-MM-DD."),
+    }),
     _declaracao("consultar_produtos", "Lista e conta produtos do acervo, com diária e estoque.", {
         "busca": _texto("Parte do nome ou do código."),
         "categoria": _texto("Nome exato da categoria."),
         "ativo": {"type": "BOOLEAN", "description": "true só ativos, false só inativos."},
+        "criado_de": _texto("Data inicial do CADASTRO do produto, AAAA-MM-DD. Use para 'produtos cadastrados hoje'."),
+        "criado_ate": _texto("Data final do cadastro, AAAA-MM-DD."),
     }),
     _declaracao("consultar_cobrancas", "Lista e soma as cobranças (parcelas) do financeiro.", {
         "situacao": {"type": "STRING", "enum": SITUACOES_COBRANCA, "description": "Situação das cobranças. Padrão: todos."},
         "vencimento_de": _texto("Data inicial do VENCIMENTO, AAAA-MM-DD. Use para 'vence nos próximos 7 dias'."),
         "vencimento_ate": _texto("Data final do VENCIMENTO, AAAA-MM-DD."),
+        "pago_de": _texto("Data inicial do PAGAMENTO (quando foi pago), AAAA-MM-DD. Use para 'o que foi pago hoje/esta semana'."),
+        "pago_ate": _texto("Data final do pagamento, AAAA-MM-DD."),
     }),
 ]}
 
@@ -148,16 +158,19 @@ def validar_chamada(nome: Any, args: Any) -> dict | None:
         limpo: dict = {}
     elif nome == "consultar_orcamentos":
         limpo = _so({"status": _limpar_enum(a.get("status"), STATUS_ORCAMENTO), "busca": _limpar_texto(a.get("busca")),
+                     "criado_de": _limpar_data(a.get("criado_de")), "criado_ate": _limpar_data(a.get("criado_ate")),
                      "retirada_de": _limpar_data(a.get("retirada_de")), "retirada_ate": _limpar_data(a.get("retirada_ate")),
                      "devolucao_de": _limpar_data(a.get("devolucao_de")), "devolucao_ate": _limpar_data(a.get("devolucao_ate"))})
     elif nome == "consultar_clientes":
-        limpo = _so({"busca": _limpar_texto(a.get("busca"))})
+        limpo = _so({"busca": _limpar_texto(a.get("busca")), "criado_de": _limpar_data(a.get("criado_de")), "criado_ate": _limpar_data(a.get("criado_ate"))})
     elif nome == "consultar_produtos":
         ativo = a.get("ativo")
-        limpo = _so({"busca": _limpar_texto(a.get("busca")), "categoria": _limpar_texto(a.get("categoria")), "ativo": ativo if isinstance(ativo, bool) else None})
+        limpo = _so({"busca": _limpar_texto(a.get("busca")), "categoria": _limpar_texto(a.get("categoria")), "ativo": ativo if isinstance(ativo, bool) else None,
+                     "criado_de": _limpar_data(a.get("criado_de")), "criado_ate": _limpar_data(a.get("criado_ate"))})
     elif nome == "consultar_cobrancas":
         limpo = {"situacao": _limpar_enum(a.get("situacao"), SITUACOES_COBRANCA) or "todos",
-                 **_so({"vencimento_de": _limpar_data(a.get("vencimento_de")), "vencimento_ate": _limpar_data(a.get("vencimento_ate"))})}
+                 **_so({"vencimento_de": _limpar_data(a.get("vencimento_de")), "vencimento_ate": _limpar_data(a.get("vencimento_ate")),
+                       "pago_de": _limpar_data(a.get("pago_de")), "pago_ate": _limpar_data(a.get("pago_ate"))})}
     elif nome == "cadastrar_cliente":
         limpo = _so({"nome": _limpar_texto(a.get("nome")), "tipo": _limpar_enum(a.get("tipo"), ["PF", "PJ"]), "documento": _limpar_texto(a.get("documento")),
                      "email": _limpar_texto(a.get("email")), "telefone": _limpar_texto(a.get("telefone")), "cidade": _limpar_texto(a.get("cidade")),

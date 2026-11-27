@@ -245,3 +245,16 @@ def test_pergunta_de_dado_com_verbo_de_cadastro_nao_e_pedido_de_acao():
         assert not pede_acao(p), p
     for p in ["cadastre o cliente João", "crie um orçamento para Maria", "exclua o produto MS-01", "novo cliente Ana de Sobral"]:
         assert pede_acao(p), p
+
+
+def test_cada_modulo_tem_as_suas_datas_e_a_de_criacao_nao_se_mistura_com_retirada():
+    r = f.validar_chamada("consultar_orcamentos", {"criado_de": "2026-11-27", "criado_ate": "2026-11-27"})
+    assert r["args"] == {"criado_de": "2026-11-27", "criado_ate": "2026-11-27"}
+    assert "retirada_de" not in r["args"]
+    assert f.validar_chamada("consultar_clientes", {"criado_de": "2026-11-27"})["args"] == {"criado_de": "2026-11-27"}
+    assert f.validar_chamada("consultar_produtos", {"criado_ate": "2026-11-27"})["args"] == {"criado_ate": "2026-11-27"}
+    assert f.validar_chamada("consultar_cobrancas", {"pago_de": "2026-11-27"})["args"] == {"situacao": "todos", "pago_de": "2026-11-27"}
+    declaradas = f.CONSULTAS["consultar_orcamentos"]["parameters"]["properties"]
+    assert {"criado_de", "criado_ate", "retirada_de", "devolucao_de"} <= set(declaradas)
+    from app.llm import INSTRUCOES_AGENTE
+    assert "Nunca use retirada ou devolução para" in INSTRUCOES_AGENTE

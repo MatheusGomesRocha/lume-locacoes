@@ -280,6 +280,26 @@
           "matriz": "número DO orçamento lista"
         }
       }
+    },
+    {
+      "id": "E15-criado-confundido-com-retirada",
+      "titulo": "“Quantos orçamentos foram criados hoje?” não tinha filtro de data de criação: respondia “nenhum” olhando retirada/devolução",
+      "visto_em": "chat de 27/11 (12:29)",
+      "status": "fechado",
+      "camadas": {
+        "codigo": {
+          "arquivo": "../versao-real/frontend/src/lib/ferramentas.test.ts"
+        },
+        "checagem_fixa": {
+          "checagem": "ORC-PERIODO"
+        },
+        "licao": {
+          "licao": "L03-orc-datas"
+        },
+        "matriz": {
+          "teste": "tests/test_ferramentas.py::test_cada_modulo_tem_as_suas_datas_e_a_de_criacao_nao_se_mistura_com_retirada"
+        }
+      }
     }
   ]
 }
