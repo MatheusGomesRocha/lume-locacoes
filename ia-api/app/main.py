@@ -217,8 +217,7 @@ def texto_do_catalogo(spec: dict, resultado: Any) -> str:
     if not isinstance(resultado, dict) or "erro" in resultado:
         return str((resultado or {}).get("erro", "Não consegui consultar agora.")).capitalize() + "." if isinstance(resultado, dict) else "Não consegui consultar agora."
     rotulo = ESQUEMA.get(spec.get("entidade"), {}).get("rotulo", "registros").lower()
-    partes = [f"Entendi: {spec['descricao']}"] if spec.get("descricao") else []
-    partes.append(f"Encontrei {resultado.get('total', 0)} em {rotulo}.")
+    partes = [f"Encontrei {resultado.get('total', 0)} em {rotulo}."]
     if "soma" in resultado:
         partes.append(f"Soma: {str(resultado['soma']).replace('.', ',')}.")
     for linha in resultado.get("linhas", [])[:15]:
@@ -250,7 +249,13 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
     resultados = ferramentas.validar_resultados(dados.resultados)
     if resultados and all(r["nome"] == ferramentas.CATALOGO for r in resultados):
         por_nome = {s["nome"]: s for s in specs_validas(dados.catalogo)}
-        return _resposta_agente("\n\n".join(texto_do_catalogo(por_nome.get(r["args"]["nome"], {}), r["resultado"]) for r in resultados), gerada_por_llm=False)
+        base = "\n\n".join(texto_do_catalogo(por_nome.get(r["args"]["nome"], {}), r["resultado"]) for r in resultados)
+        # O número vem do código; o modelo só põe em palavras, no tom de quem perguntou. Se ele inventar número ou falhar, vale o texto de código.
+        lidos = [{"nome": por_nome.get(r["args"]["nome"], {}).get("descricao", "consulta"), "args": r["args"].get("params", {}), "resultado": r["resultado"]} for r in resultados]
+        falado = None if any(isinstance(r["resultado"], dict) and "erro" in r["resultado"] for r in resultados) else redigir_com_dados(provedor_llm, limitador_llm, pergunta, historico, lidos, dados.hoje)
+        if falado and texto_confere_com_dados(falado, lidos, pergunta, dados.hoje):
+            return _resposta_agente(falado, gerada_por_llm=True)
+        return _resposta_agente(base, gerada_por_llm=False)
     if resultados:  # segunda volta: o front já consultou, falta redigir a resposta
         texto = redigir_com_dados(provedor_llm, limitador_llm, pergunta, historico, resultados, dados.hoje)
         if texto and not texto_confere_com_dados(texto, resultados, pergunta, dados.hoje):  # número que não existe nos dados: descarta o texto do modelo
@@ -281,9 +286,9 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
     if dados.catalogo and not ferramentas.pede_acao(pergunta) and tipo_da_pergunta(pergunta) in ("listar", "somar"):
         parecida = buscar_consulta(pergunta, specs_validas(dados.catalogo), por_tipo=False)
         if parecida:  # existe consulta do mesmo assunto, mas de outro tipo (sabe contar, não sabe listar): diz isso e deixa para os Agents
-            quer = "listar" if tipo_da_pergunta(pergunta) == "listar" else "somar"
-            return _resposta_agente(f"Ainda não consigo {quer} isso: só sei {'contar' if parecida.get('operacao') == 'contar' else parecida.get('operacao')} ({parecida.get('descricao', '')[:80]}). "
-                                    "Não consegui responder como você pediu; registrei a pergunta para o Master analisar.", encontrou=False, gerada_por_llm=False)
+            sei = {"contar": "te dizer quantos são", "listar": "listar os registros", "somar": "somar os valores"}.get(parecida.get("operacao"), "responder de outro jeito")
+            quer = "listar os nomes" if tipo_da_pergunta(pergunta) == "listar" else "somar esses valores"
+            return _resposta_agente(f"Por enquanto eu só consigo {sei}, ainda não sei {quer}. Já anotei o seu pedido para a equipe liberar. Não consegui responder como você queria.", encontrou=False, gerada_por_llm=False)
     if provedor_llm is None or not ferramentas.parece_pedido_de_acao_ou_dados(pergunta, historico):
         return None
     chave = chave_da_conversa("decisao", VERSAO_DO_CONTEUDO, pergunta, historico, dados.ultimo_id, dados.hoje or "")
@@ -402,14 +407,13 @@ def _responder(dados: PerguntaIn):
 
     completa, duvida = _completar_seguimento(pergunta, contexto.perguntas_anteriores)
     if duvida is not None:  # não deu para ter certeza do que ele quis dizer: pergunta, não chuta
-        quis = f"Você quis dizer: “{duvida}”? Se sim, envie a pergunta completa." if duvida else "Pode escrever a pergunta completa, com o assunto?"
-        return _resposta_agente(f"Não tenho certeza do que você quer saber com “{pergunta[:80]}”. {quis}", esclarecimento=True, gerada_por_llm=False)
+        quis = f"Você quer saber: “{duvida}”? Se for isso, me manda a pergunta completa que eu respondo." if duvida else "Me conta a pergunta completa, com o assunto, que eu respondo."
+        return _resposta_agente(f"Não tenho certeza se entendi o “{pergunta[:80]}”. {quis}", esclarecimento=True, gerada_por_llm=False)
     da_ferramenta = _agente(completa, contexto.perguntas_anteriores, dados)
     if da_ferramenta is not None:
         if completa == pergunta:
             return da_ferramenta
-        texto = f"Entendi: {completa}\n\n{da_ferramenta['resposta']}" if da_ferramenta.get("resposta") else da_ferramenta["resposta"]
-        return {**da_ferramenta, "resposta": texto, "pergunta_completa": completa}
+        return {**da_ferramenta, "pergunta_completa": completa}
 
     resultados, usou_contexto = base_local.buscar_com_contexto(pergunta, contexto, limite=4)
     melhor = resultados[0] if resultados else None

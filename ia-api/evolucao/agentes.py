@@ -368,7 +368,7 @@ FAMILIA_EXECUCAO = {"execucao", "permissao", "parametro", "vazamento"}
 def _total_da_janela(spec: dict, params: dict) -> int | None:
     """Contagem de "nos últimos N dias" feita só com datas, sem usar o executor (fonte independente). None se não for esse formato."""
     fs = spec.get("filtros") or []
-    if spec.get("operacao") != "contar" or len(fs) != 1 or fs[0].get("op") not in JANELAS or spec.get("entidade") not in DADOS_TESTE:
+    if spec.get("operacao") not in ("contar", "listar") or len(fs) != 1 or fs[0].get("op") not in JANELAS or spec.get("entidade") not in DADOS_TESTE:
         return None
     n = params.get(fs[0].get("parametro"))
     if isinstance(n, bool) or not isinstance(n, int) or not 0 <= n <= 3650:

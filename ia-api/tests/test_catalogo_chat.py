@@ -239,3 +239,34 @@ def test_pedido_longo_de_nomes_acha_a_consulta_do_mesmo_assunto(monkeypatch):
     q = "você consegue me listar os NOMES dos clientes que foram cadastrados hoje?"
     r = main._agente(q, [], main.PerguntaIn(pergunta=q, catalogo=[contar]))
     assert r["encontrou"] is False and "listar" in r["resposta"] and not r.get("consultas")
+
+
+def _resultados_do_catalogo():
+    return [{"nome": __import__("app.ferramentas", fromlist=["x"]).CATALOGO, "args": {"nome": "c_hoje", "params": {}}, "resultado": {"total": 2, "linhas": [{"nome": "Ana"}, {"nome": "Bia"}]}}]
+
+
+def _spec_c_hoje():
+    return {"nome": "c_hoje", "descricao": "Lista clientes cadastrados hoje", "entidade": "clientes", "operacao": "listar", "permissao": "clientes.ver", "saida": ["nome"], "parametros": {},
+            "exemplos": ["nomes dos clientes cadastrados hoje", "listar clientes cadastrados hoje", "clientes novos de hoje"], "palavras_chave": ["clientes"], "sinonimos": {}, "filtros": []}
+
+
+def test_resposta_da_consulta_e_conversada_sem_entendi_e_com_numero_conferido(monkeypatch):
+    from app import main
+    monkeypatch.setattr(main, "provedor_llm", object())
+    dados = main.PerguntaIn(pergunta="quais os nomes?", catalogo=[_spec_c_hoje()], resultados=_resultados_do_catalogo())
+    monkeypatch.setattr(main, "redigir_com_dados", lambda *a, **k: "Hoje entraram 2 clientes: Ana e Bia.")
+    r = main._agente("quais os nomes?", [], dados)
+    assert r["resposta"] == "Hoje entraram 2 clientes: Ana e Bia." and "Entendi" not in r["resposta"]
+    monkeypatch.setattr(main, "redigir_com_dados", lambda *a, **k: "Hoje entraram 9 clientes.")  # número inventado
+    r = main._agente("quais os nomes?", [], dados)
+    assert "9" not in r["resposta"] and "Encontrei 2" in r["resposta"] and "Entendi" not in r["resposta"]
+    monkeypatch.setattr(main, "redigir_com_dados", lambda *a, **k: None)  # modelo fora do ar: texto de código
+    assert "Encontrei 2" in main._agente("quais os nomes?", [], dados)["resposta"]
+
+
+def test_tester_refaz_total_esperado_de_listagem_por_janela():
+    from evolucao.agentes import refazer_totais_de_janela
+    spec = {**_spec_c_hoje(), "entidade": "clientes", "parametros": {"dias": {"tipo": "numero", "obrigatorio": True}}, "filtros": [{"campo": "criado_em", "op": "ultimos_dias", "parametro": "dias"}]}
+    caso = {"tipo": "execucao", "origem": "tester_llm", "esperado": {"total": 99}, "sessao": "master", "params": {"dias": 0}, "descricao": "hoje"}
+    avisos = refazer_totais_de_janela(spec, [caso])
+    assert avisos and caso["esperado"]["total"] != 99
