@@ -124,3 +124,12 @@ def test_executa_com_hoje_e_recusa_sem_ele():
     assert executar(SPEC_RECENTES, {"dias": 3}, DADOS_TESTE, SESSOES_TESTE["vendedor"]) == {"total": 1}
     with pytest.raises(ErroConsulta):
         executar(SPEC_RECENTES, {"dias": 7}, DADOS_TESTE, {"papel": "usuario", "permissoes": ["clientes.ver"]})
+
+
+def test_parametro_de_texto_vai_ao_front_com_a_pergunta_em_vez_de_travar(cliente):
+    spec = {"nome": "estoque_por_categoria", "descricao": "Soma o estoque por categoria", "entidade": "produtos", "operacao": "somar", "campo_soma": "quantidade",
+            "permissao": "produtos.ver", "saida": [], "exemplos": ["Qual o total de unidades em estoque da categoria Iluminação?", "Qual o total de unidades em estoque da categoria Som?", "Qual o total de unidades em estoque da categoria Buffet?"],
+            "palavras_chave": ["estoque", "categoria"], "parametros": {"cat": {"tipo": "texto", "obrigatorio": True}},
+            "filtros": [{"campo": "categoria", "op": "igual", "parametro": "cat"}], "sinonimos": {}}
+    r = cliente.post("/chat", json={"pergunta": "Qual o total de unidades em estoque da categoria Cadeiras?", "catalogo": [spec]}).json()
+    assert r["consultas"][0]["args"]["pergunta"].startswith("Qual o total") and r["consultas"][0]["args"]["params"] == {}

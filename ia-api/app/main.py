@@ -238,10 +238,16 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
         spec = buscar_consulta(pergunta, specs)
         if spec:
             params = extrair_parametros(pergunta, spec)
-            falta = _faltando(spec, params)
+            # Parâmetro de texto (ex.: categoria) o servidor não consegue ler da pergunta: ele não tem os dados. Vai a pergunta junto
+            # e o front acha o valor entre os que existem de verdade; se não achar, ele pergunta com as opções reais.
+            sem_texto = [n for n in _faltando(spec, params) if spec["parametros"][n].get("tipo") != "texto"]
+            falta = sem_texto
             if falta:
                 return _resposta_agente(f"Para responder preciso saber: {', '.join(falta)}. Diga na pergunta, por exemplo “{(spec.get('exemplos') or [''])[0]}”.", gerada_por_llm=False)
-            return _resposta_agente("", consultas=[{"nome": ferramentas.CATALOGO, "args": {"nome": spec["nome"], "params": params}}], gerada_por_llm=False)
+            args = {"nome": spec["nome"], "params": params}
+            if _faltando(spec, params):
+                args["pergunta"] = pergunta[:300]
+            return _resposta_agente("", consultas=[{"nome": ferramentas.CATALOGO, "args": args}], gerada_por_llm=False)
     if provedor_llm is None or not ferramentas.parece_pedido_de_acao_ou_dados(pergunta, historico):
         return None
     chave = chave_da_conversa("decisao", VERSAO_DO_CONTEUDO, pergunta, historico, dados.ultimo_id, dados.hoje or "")
