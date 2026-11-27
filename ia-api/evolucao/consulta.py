@@ -89,7 +89,20 @@ def validar_parametros(spec: dict, params: dict) -> dict:
                 raise ParametroInvalido(f"falta o parâmetro {nome}")
             continue
         saida[nome] = _valor_do_param(d, params[nome])
+    _recusar_periodo_invertido(spec, saida)
     return saida
+
+
+def _recusar_periodo_invertido(spec: dict, valores: dict) -> None:
+    """Período de calendário (campo >= de e campo <= ate) com "de" depois de "ate" é pergunta sem sentido: recusa em vez de devolver 0 como se fosse resposta."""
+    for f in spec.get("filtros") or []:
+        if f.get("op") != "maior_igual" or "parametro" not in f:
+            continue
+        for g in spec.get("filtros") or []:
+            if g.get("op") == "menor_igual" and g.get("campo") == f.get("campo") and "parametro" in g:
+                de, ate = valores.get(f["parametro"]), valores.get(g["parametro"])
+                if isinstance(de, str) and isinstance(ate, str) and de > ate and (spec.get("parametros") or {}).get(f["parametro"], {}).get("tipo") == "data":
+                    raise ParametroInvalido(f"a data inicial ({f['parametro']}) é depois da final ({g['parametro']})")
 
 
 MAX_DIAS = 3650
