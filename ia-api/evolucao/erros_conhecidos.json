@@ -220,6 +220,26 @@
           "teste": "tests/test_catalogo_chat.py::test_pedido_longo_de_nomes_acha_a_consulta_do_mesmo_assunto"
         }
       }
+    },
+    {
+      "id": "E12-ponto-e-virgula-barrado",
+      "titulo": "A checagem P06 reprovava a proposta inteira por um ponto e vírgula numa descrição de caso (falso positivo)",
+      "visto_em": "EV-0037",
+      "status": "fechado",
+      "camadas": {
+        "codigo": {
+          "teste": "tests/test_evolucao.py::test_pontuacao_comum_nao_e_ataque_mas_ataque_continua_barrado"
+        },
+        "checagem_fixa": {
+          "checagem": "P06"
+        },
+        "licao": {
+          "nao_se_aplica": "o defeito era da checagem e não do que o Agent escreveu: ela é que foi corrigida"
+        },
+        "matriz": {
+          "matriz": "pontuação comum não é ataque"
+        }
+      }
     }
   ]
 }

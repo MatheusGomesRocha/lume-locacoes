@@ -10,7 +10,9 @@ from evolucao.consulta import CHAVES_DA_SPEC, JANELAS, OPERACOES, OPS_POR_TIPO, 
 from evolucao.esquema import DADOS_TESTE, ESQUEMA, HOJE_TESTE, PERMISSOES_VALIDAS, SESSOES_TESTE, TIPOS
 
 NOME_OK = re.compile(r"^[a-z][a-z0-9_]{2,59}$")
-SUSPEITO = re.compile(r"(;|--|/\*|\b(select|insert|update|delete|drop|union|exec)\b|<script|\bignore\b.*\b(regras|instru)|\bsystem prompt\b)", re.I)
+_VERBOS_SQL = r"(select|insert|update|delete|drop|union|exec|alter|truncate)"
+# Ponto e vírgula e "--" sozinhos são pontuação comum em descrição de caso ("…2026-11-25; Maria foi cadastrada…"): só suspeitam quando antecedem um verbo de SQL.
+SUSPEITO = re.compile(rf"(;\s*{_VERBOS_SQL}\b|--\s*{_VERBOS_SQL}\b|'\s*or\s+1\s*=\s*1|/\*|\b{_VERBOS_SQL}\b|<script|\bignore\b.*\b(regras|instru)|\bsystem prompt\b)", re.I)
 MAX_LIMITE = 50
 MAX_SAIDA = 8
 
