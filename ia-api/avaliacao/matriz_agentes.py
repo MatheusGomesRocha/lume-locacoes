@@ -121,6 +121,22 @@ def casos() -> list[tuple[str, callable]]:
             return None
         saida.append((f"{e}.{campo}: período invertido é recusado e a checagem C14 pega quem aceitar", invertido))
 
+    # C16/C17/C18: o que varia na pergunta é parâmetro, não parte da consulta
+    def dinamico():
+        base = {"nome": "cobrancas_por_forma", "descricao": "d", "entidade": "pagamentos", "operacao": "contar", "permissao": "financeiro.ver", "saida": [],
+                "exemplos": ["quantos pagamentos no pix?", "quantos pagamentos no cartão?"], "palavras_chave": ["pagamentos", "orcamentos", "pagos"], "sinonimos": {},
+                "parametros": {"forma": {"tipo": "enum", "valores": ["pix", "cartao", "boleto"], "obrigatorio": True}},
+                "filtros": [{"campo": "forma", "op": "igual", "parametro": "forma"}]}
+        codigos = lambda sp: {a["codigo"] for a in checagens.checar_spec(sp)}
+        if codigos(base) & {"C16", "C17", "C18"}:
+            return "consulta com parâmetro dinâmico foi barrada"
+        if "C17" not in codigos({**base, "nome": "pagos_no_pix"}):
+            return "C17 não pegou nome preso ao valor"
+        if "C16" not in codigos({**base, "exemplos": ["quantos orçamentos foram pagos no pix?"], "palavras_chave": ["pagamentos", "pix"]}):
+            return "C16 não pegou consulta que só acha um valor do parâmetro"
+        return None
+    saida.append(("valor que varia vira parâmetro (C16/C17)", dinamico))
+
     # C15: quem pede nomes não pode receber contagem (e o contrário)
     for e, d in ESQUEMA.items():
         def tipo_certo(e=e, d=d):

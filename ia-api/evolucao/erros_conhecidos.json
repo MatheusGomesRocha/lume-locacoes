@@ -300,6 +300,26 @@
           "teste": "tests/test_ferramentas.py::test_cada_modulo_tem_as_suas_datas_e_a_de_criacao_nao_se_mistura_com_retirada"
         }
       }
+    },
+    {
+      "id": "E16-valor-que-varia-virou-consulta-estatica",
+      "titulo": "“Quantos orçamentos foram pagos no Pix?” gerou a consulta orcamentos_pagos_no_pix: a pergunta do cartão pediria outra consulta (e o próprio exemplo não era achado)",
+      "visto_em": "relatório EV de 27/11 (12:42)",
+      "status": "fechado",
+      "camadas": {
+        "codigo": {
+          "teste": "tests/test_evolucao.py::test_c16_c17_valor_que_varia_e_parametro_nao_parte_da_consulta"
+        },
+        "checagem_fixa": {
+          "checagem": "C16"
+        },
+        "licao": {
+          "licao": "L10-valor-que-varia-e-parametro"
+        },
+        "matriz": {
+          "matriz": "valor que varia vira parâmetro"
+        }
+      }
     }
   ]
 }

@@ -6,7 +6,7 @@ Quando o Tester (Agent 3) descobrir um tipo de falha que vale para toda consulta
 import re
 
 from app import ferramentas
-from evolucao.consulta import CHAVES_DA_SPEC, JANELAS, OPERACOES, OPS_POR_TIPO, ErroConsulta, ParametroInvalido, buscar_consulta, executar, pontuar, tipo_da_pergunta
+from evolucao.consulta import CHAVES_DA_SPEC, JANELAS, OPERACOES, OPS_POR_TIPO, ErroConsulta, ParametroInvalido, buscar_consulta, executar, pontuar, tipo_da_pergunta, valores_de_parametro
 from evolucao.esquema import DADOS_TESTE, ESQUEMA, HOJE_TESTE, PERMISSOES_VALIDAS, SESSOES_TESTE, TIPOS
 
 NOME_OK = re.compile(r"^[a-z][a-z0-9_]{2,59}$")
@@ -146,6 +146,8 @@ def checar_spec(spec: dict, proposta: dict | None = None, catalogo: list[dict] |
             f.append(_a("C15", "bloqueio", f"o exemplo “{e}” pede {pedido}, mas a consulta faz {spec.get('operacao')}: quem pede um não pode receber o outro"))
             break
 
+    f += _parametro_dinamico(spec)
+
     if any(SUSPEITO.search(t) for t in _textos({k: v for k, v in spec.items() if k != "nome"})):
         f.append(_a("C10", "bloqueio", "a consulta tem texto com cara de SQL, script ou instrução"))
 
@@ -201,6 +203,40 @@ def _periodo_de_calendario(spec: dict) -> list[dict]:
     except ErroConsulta:
         return [_a("C14", "bloqueio", f"consulta de período recusou um período normal ({de} antes de {ate})")]
     return []
+
+
+def _parametro_dinamico(spec: dict) -> list[dict]:
+    """C16/C17/C18 — o que varia na pergunta (forma de pagamento, status, perfil…) é PARÂMETRO, não parte da consulta.
+    Nasceu do pedido “quantos orçamentos foram pagos no Pix?”: a consulta virou “_no_pix” e a pergunta do cartão pediria outra."""
+    f: list[dict] = []
+    slot = valores_de_parametro(spec)
+    nome_sem = set(re.split(r"[^a-z0-9]+", str(spec.get("nome", "")).lower()))
+    citados = sorted(nome_sem & slot)
+    if citados:
+        f.append(_a("C17", "aviso", f"o nome da consulta cita o valor “{citados[0]}”, que é um parâmetro: use um nome geral (ex.: ..._por_forma)"))
+    # C16: trocando o valor do parâmetro na pergunta, a busca continua achando a consulta (senão “no cartão?” pediria outra consulta)
+    for nome, d in (spec.get("parametros") or {}).items():
+        valores = [str(v) for v in (d.get("valores") or [])] if d.get("tipo") == "enum" else []
+        if len(valores) < 2:
+            continue
+        for ex in spec.get("exemplos") or []:
+            ex_sem = " " + re.sub(r"[^a-z0-9]+", " ", __import__("unicodedata").normalize("NFKD", str(ex).lower()).encode("ascii", "ignore").decode()) + " "
+            usado = next((v for v in valores if f" {v.lower()} " in ex_sem), None)
+            if not usado:
+                continue
+            for outro in valores:
+                if outro == usado:
+                    continue
+                variante = ex_sem.replace(f" {usado.lower()} ", f" {outro.lower()} ").strip()
+                if pontuar(variante, spec) < 0.5:
+                    f.append(_a("C16", "bloqueio", f"o parâmetro {nome} varia, mas a pergunta com “{outro}” no lugar de “{usado}” não acha a consulta: “{variante}”"))
+                    return f
+            break
+    for fl in spec.get("filtros") or []:
+        c = (ESQUEMA.get(spec.get("entidade")) or {}).get("campos", {}).get(fl.get("campo"))
+        if c and "valor" in fl and c["tipo"] in ("enum", "bool") and fl.get("op") == "igual":
+            f.append(_a("C18", "aviso", f"o filtro de {fl['campo']} tem o valor fixo “{fl['valor']}”: se a pergunta pode variar (outro valor), transforme em parâmetro"))
+    return f
 
 
 def _regras_de_modulo(spec: dict) -> list[dict]:

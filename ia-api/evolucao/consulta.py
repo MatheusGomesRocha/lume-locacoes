@@ -191,25 +191,47 @@ def _termos_da_entidade(nome: str) -> set[str]:
     return {r, r.rstrip("s")} if r else set()
 
 
-def _fala_de_outra_entidade(q: set[str], entidade: str) -> bool:
-    """A pergunta cita outra entidade (ex.: produtos) e nunca a desta consulta (clientes)? Então não é desta consulta."""
+def _fala_de_outra_entidade(q: set[str], entidade: str, declaradas: set[str] | None = None) -> bool:
+    """A pergunta cita outra entidade (ex.: produtos) e nunca a desta consulta (clientes)? Então não é desta consulta.
+    Palavra que a própria consulta declara (palavras_chave/sinonimos: "orçamentos pagos" numa consulta de cobranças) não conta como outra entidade."""
     if entidade not in ESQUEMA or q & _termos_da_entidade(entidade):
         return False
-    return any(q & _termos_da_entidade(o) for o in ESQUEMA if o != entidade)
+    return any((q & _termos_da_entidade(o)) - (declaradas or set()) for o in ESQUEMA if o != entidade)
+
+
+_SLOT = "valorparametro"
+
+
+def valores_de_parametro(spec: dict) -> set[str]:
+    """Palavras que são VALORES de um parâmetro da consulta (pix, cartão, pendente…) e os sinônimos deles: na busca, são a "casa" do parâmetro, não o assunto."""
+    saida: set[str] = set()
+    for d in (spec.get("parametros") or {}).values():
+        if isinstance(d, dict) and d.get("tipo") == "enum":
+            for v in d.get("valores") or []:
+                saida |= {sem_acento(str(v)).lower()}
+                saida |= {p for sin in (spec.get("sinonimos") or {}).get(v, []) for p in palavras(sin)}
+    return saida
+
+
+def _termos_da(t, spec: dict) -> set[str]:
+    """Como _termos, mas o valor de parâmetro vira uma palavra só: "quantos pagamentos no pix" e "…no cartão" são a MESMA consulta."""
+    slot = valores_de_parametro(spec)
+    return {_SLOT if p in slot else p for p in _termos(t)}
 
 
 def pontuar(pergunta: str, spec: dict) -> float:
     """0 a 1: o quanto a pergunta se parece com os exemplos e palavras-chave desta consulta."""
-    q = _termos(pergunta)
-    if not q or _fala_de_outra_entidade(q, spec.get("entidade", "")):
+    q = _termos_da(pergunta, spec)
+    declaradas = {p for k in [*(spec.get("palavras_chave") or []), *(spec.get("sinonimos") or {})] for p in _termos(k)}
+    if not q or _fala_de_outra_entidade(q, spec.get("entidade", ""), declaradas):
         return 0.0
     valores = {p for lista in (spec.get("sinonimos") or {}).values() for s in lista for p in _termos(s)}
     melhor = 0.0
     for ex in spec.get("exemplos", []):
-        e = _termos(ex)
+        e = _termos_da(ex, spec)
         if e:
             melhor = max(melhor, len(q & e) / len(q | e))
-    chaves = {p for k in spec.get("palavras_chave", []) for p in _termos(k)} | _termos(spec.get("entidade", ""))
+    chaves = {_SLOT if p in valores_de_parametro(spec) else p for k in spec.get("palavras_chave", []) for p in _termos(k)} | _termos(spec.get("entidade", "")) | _termos_da_entidade(spec.get("entidade", ""))
     if chaves:
         melhor = max(melhor, 0.9 * len(q & (chaves | valores)) / len(q) * (1 if q & chaves else 0))
     return round(melhor, 3)
