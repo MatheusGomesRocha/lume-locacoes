@@ -68,7 +68,7 @@ class AprovadorEvolucao
     private function pedirParecer(EvolucaoProposta $p): ?array
     {
         try {
-            $r = $this->api(120)->post('/evolucao/revisar', ['relatorio' => $p->relatorio, 'catalogo' => EvolucaoProposta::specsAtivas()]);
+            $r = $this->api(120)->post('/evolucao/revisar', ['relatorio' => \App\Support\SemTextoDeAtaque::limpar($p->relatorio), 'catalogo' => EvolucaoProposta::specsAtivas()]);
         } catch (Throwable $e) {
             Log::error('Aprovador: falha ao chamar a API: ' . $e->getMessage());
 
