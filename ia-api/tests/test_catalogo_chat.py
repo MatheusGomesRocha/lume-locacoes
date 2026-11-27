@@ -331,3 +331,16 @@ def test_tester_conta_periodo_de_ate_por_datas():
     todos = _total_da_janela(spec, {"de": "2000-01-01", "ate": HOJE_TESTE})
     assert todos == len([l for l in DADOS_TESTE["clientes"] if l.get("criado_em") and l["criado_em"][:10] <= HOJE_TESTE])
     assert _total_da_janela(spec, {"de": "lixo", "ate": HOJE_TESTE}) is None
+
+
+def test_pergunta_com_periodo_e_pedido_de_dado_vai_para_a_fila_dos_agents(cliente):
+    """EV do dia 27/11: “qual número do orçamento que será devolvido hoje?” caía na ajuda do número do orçamento e nunca virava proposta."""
+    r = cliente.post("/chat", json={"pergunta": "qual número do orçamento que será devolvido hoje?"}).json()
+    assert r["encontrou"] is False and "Registrei" in r["resposta"]
+
+
+def test_ajuda_que_admite_nao_saber_nao_conta_como_resposta(monkeypatch, cliente):
+    monkeypatch.setattr(main, "provedor_llm", object())
+    monkeypatch.setattr(main, "gerar_resposta", lambda *a, **k: "Não encontrei essa informação na ajuda. O número do orçamento é gerado automaticamente.")
+    r = cliente.post("/chat", json={"pergunta": "qual é o número do orçamento"}).json()
+    assert r["encontrou"] is False and "Registrei" in r["resposta"]

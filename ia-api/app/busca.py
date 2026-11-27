@@ -249,6 +249,26 @@ class BaseConhecimento:
 INICIOS_DE_PEDIDO_DE_DADOS = {"quantos", "quantas", "quanto", "liste", "listar", "lista", "mostre", "mostrar", "exiba"}
 
 
+# "qual número do orçamento que será devolvido hoje?" não é dúvida de uso: tem um período de calendário e pede um dado do sistema.
+_PERIODO_DE_CALENDARIO = re.compile(r"\b(hoje|ontem|anteontem|amanha|(?:esta|essa|nesta|nessa) semana|semana (?:passada|que vem)|(?:este|esse|neste|nesse) mes|mes passado|(?:ultim|proxim)[oa]s? \d+ dias)\b")
+_FALA_DO_SISTEMA = re.compile(r"\b(orcament|client|produt|cobranc|pagament|usuari|devol|retirad|financ|fatur|locac|estoque|cadastr|pedido|reserva)\w*")
+_PEDE_UM_DADO = {"qual", "quais", "quem", "quanto", "quantos", "quantas", "tem", "temos", "ha"}
+_VERBO_DE_ACONTECIMENTO = re.compile(r"\b(foi|foram|sera|serao|vence|vencem|vai|vao|esta|estao)\b")
+
+
 def pede_dados_do_sistema(pergunta: str) -> bool:
-    palavras = normalizar(pergunta).split()
-    return bool(palavras) and (palavras[0] in INICIOS_DE_PEDIDO_DE_DADOS or "eu tenho" in normalizar(pergunta))
+    t = normalizar(pergunta)
+    palavras = t.split()
+    if not palavras:
+        return False
+    if palavras[0] in INICIOS_DE_PEDIDO_DE_DADOS or "eu tenho" in t:
+        return True
+    return bool(_PERIODO_DE_CALENDARIO.search(t)) and bool(_FALA_DO_SISTEMA.search(t)) and (palavras[0] in _PEDE_UM_DADO or bool(_VERBO_DE_ACONTECIMENTO.search(t)))
+
+
+_ADMITE_NAO_SABER = re.compile(r"\bnao (encontrei|consegui (encontrar|achar|responder|ver|consultar)|tenho (essa |a )?informacao|ha (dados|informacao)|sei informar|foi possivel)\b")
+
+
+def respondeu_sem_dados(texto: str) -> bool:
+    """O texto admite que não sabe ("Não encontrei essa informação na ajuda…")? Mesma regra do front (lib/logs.ts)."""
+    return bool(_ADMITE_NAO_SABER.search(normalizar(texto)))

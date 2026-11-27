@@ -20,7 +20,7 @@ from app import consumo, ferramentas
 from app.conversa import resposta_de_conversa
 from app.cache import cache_do_ambiente, chave_da_conversa, versao_do_conteudo
 from app.impossivel import pergunta_impossivel
-from app.busca import BaseConhecimento, Contexto, Resultado, pede_dados_do_sistema
+from app.busca import BaseConhecimento, Contexto, Resultado, pede_dados_do_sistema, respondeu_sem_dados
 from app.semantica import NOTA_LEXICAL_CONFIANTE, criar_indice_do_ambiente, vencedor_confiavel
 from evolucao import checagens
 from evolucao.agentes import normalizar_spec
@@ -459,7 +459,7 @@ def _responder(dados: PerguntaIn):
         registrar_sem_resposta(pergunta, 0.0, tipo="dados")
         return {
             "encontrou": False,
-            "resposta": "Ainda não consigo consultar os seus dados (quantidades, listas, valores). Por enquanto eu só explico como usar o sistema. Para ver esse número, use o Painel, os Orçamentos ou o Financeiro.",
+            "resposta": "Ainda não consigo consultar esses dados do sistema. Registrei a sua pergunta para a equipe preparar essa consulta. Enquanto isso, você consegue ver pelo Painel, pelos Orçamentos ou pelo Financeiro.",
             "fonte": None,
             "confianca": 0.0,
             "relacionadas": _relacionadas(resultados, 0, 3),
@@ -497,6 +497,13 @@ def _responder(dados: PerguntaIn):
         if not em_cache:
             redigida = gerar_resposta(provedor_llm, limitador_llm, pergunta, contexto.perguntas_anteriores, trechos, assunto or base_local.modulo_do_item(contexto.ultimo_id))
             cache.guardar(chave, redigida)  # None (falha do modelo) não é guardado
+        if redigida and respondeu_sem_dados(redigida):
+            # O texto do próprio modelo admite que a ajuda não responde: isso é pergunta sem resposta (entra na fila dos Agents), não "ajuda".
+            registrar_sem_resposta(pergunta, melhor.score, tipo="dados")
+            return {
+                "em_cache": em_cache, "encontrou": False, "resposta": redigida + " Registrei a sua pergunta para a equipe.", "gerada_por_llm": True, "fonte": None,
+                "confianca": melhor.score, "relacionadas": _relacionadas(resultados, 0, 3), "usou_contexto": usou_contexto, "busca": busca, "semantica": diagnostico_semantico,
+            }
         return {
             "em_cache": em_cache,
             "encontrou": True,

@@ -71,6 +71,9 @@ def test_extrair_termos_mantem_numeros():
     "Liste os clientes de Fortaleza",
     "mostre o financeiro",
     "quantas cobranças estão atrasadas",
+    "qual número do orçamento que será devolvido hoje?",
+    "quais orçamentos foram criados ontem",
+    "quais clientes foram cadastrados esta semana?",
 ])
 def test_pede_dados_detecta_pedidos_de_numeros(pergunta):
     assert pede_dados_do_sistema(pergunta) is True
@@ -80,6 +83,9 @@ def test_pede_dados_detecta_pedidos_de_numeros(pergunta):
     "como aprovar um orçamento",
     "por que não consigo listar os produtos",
     "o que significa pendente",
+    "como criar um orçamento hoje?",
+    "qual a previsão do tempo para amanhã",
+    "o que significa status atrasado hoje",
     "",
 ])
 def test_pede_dados_ignora_duvidas_de_uso(pergunta):

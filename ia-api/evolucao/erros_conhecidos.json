@@ -240,6 +240,26 @@
           "matriz": "pontuação comum não é ataque"
         }
       }
+    },
+    {
+      "id": "E13-pergunta-de-dado-caiu-na-ajuda",
+      "titulo": "“Qual número do orçamento que será devolvido hoje?” virou resposta de ajuda e nunca entrou na fila dos Agents",
+      "visto_em": "chat de 27/11 (12:17)",
+      "status": "fechado",
+      "camadas": {
+        "codigo": {
+          "teste": "tests/test_catalogo_chat.py::test_pergunta_com_periodo_e_pedido_de_dado_vai_para_a_fila_dos_agents"
+        },
+        "checagem_fixa": {
+          "nao_se_aplica": "é do roteamento do chat, não de uma proposta de consulta"
+        },
+        "licao": {
+          "nao_se_aplica": "os Agents só recebem a pergunta depois que ela entra na fila"
+        },
+        "matriz": {
+          "teste": "tests/test_catalogo_chat.py::test_ajuda_que_admite_nao_saber_nao_conta_como_resposta"
+        }
+      }
     }
   ]
 }
