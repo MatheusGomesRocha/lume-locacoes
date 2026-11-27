@@ -30,8 +30,9 @@ from evolucao.pipeline import gerar_relatorios
 from app.limite import LimitadorDeRequisicoes
 import logging
 
+from evolucao.aprovador import revisar as revisar_proposta
 from app.confianca import seguimento_confere, texto_confere_com_dados, texto_seguro
-from app.llm import AJUDA, INSTRUCOES, INSTRUCOES_AGENTE, LimitadorDiario, criar_provedor_do_ambiente, decidir_acao, gerar_resposta, limite_diario_do_ambiente, redigir_com_dados, reformular_seguimento
+from app.llm import AJUDA, INSTRUCOES, ProvedorGemini, INSTRUCOES_AGENTE, LimitadorDiario, criar_provedor_do_ambiente, decidir_acao, gerar_resposta, limite_diario_do_ambiente, redigir_com_dados, reformular_seguimento
 
 PASTA_DADOS = Path(__file__).resolve().parent.parent / "data"
 
@@ -364,6 +365,32 @@ def evolucao_checar(dados: ChecarIn):
     spec, _ = normalizar_spec(dados.spec)
     achados = checagens.checar_spec(spec, dados.proposta or None, specs_validas(dados.catalogo))
     return {"achados": achados, "bloqueio": checagens.tem_bloqueio(achados)}
+
+
+class RevisarIn(BaseModel):
+    relatorio: dict[str, Any]
+    catalogo: list[dict[str, Any]] = Field(default_factory=list, max_length=30)
+
+
+def _provedor_do_aprovador():
+    """O Aprovador pode usar outro modelo que os 3 Agents (IA_APROVADOR_MODELO): erros menos correlacionados. Sem isso, o mesmo provedor com outro prompt."""
+    modelo = os.getenv("IA_APROVADOR_MODELO", "").strip()
+    chave = os.getenv("GEMINI_API_KEY", "").strip()
+    if modelo and chave:
+        return ProvedorGemini(chave, modelo)
+    return provedor_llm
+
+
+@app.post("/evolucao/revisar", dependencies=[Depends(exigir_token), Depends(limitar)])
+def evolucao_revisar(dados: RevisarIn):
+    """Agent 4 (Aprovador): confere uma proposta dos outros 3 Agents e RECOMENDA aprovar, deixar pendente ou reprovar. Não altera nada:
+    quem guarda as propostas decide o que fazer (modo sombra só registra; modo automático ativa)."""
+    if provedor_llm is None:
+        raise HTTPException(status_code=503, detail="O Agent de Aprovação precisa do modelo (GEMINI_API_KEY) e ele não está configurado.")
+    try:
+        return revisar_proposta(dados.relatorio, specs_validas(dados.catalogo), _provedor_do_aprovador(), limitador_llm)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"O Agent de Aprovação não conseguiu terminar: {str(e)[:200]}") from None
 
 
 TEXTO_USUARIO_DO_SISTEMA = (

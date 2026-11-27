@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ChatLog;
 use App\Models\EvolucaoProposta;
 use App\Models\FaqItem;
+use App\Services\AprovadorEvolucao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -142,6 +143,27 @@ class EvolucaoController extends Controller
             'status' => $d['aprovar'] ? 'aprovada' : 'reprovada', 'ativa' => (bool) $d['aprovar'],
             'decidida_por' => (string) ($request->attributes->get('usuario')?->nome ?? 'master'), 'decidida_em' => now(),
         ]);
+
+        return response()->json($p->fresh()->paraFront());
+    }
+
+    /** Botão "Executar Agent de Aprovação": roda agora o mesmo que o job de 5 em 5 minutos. */
+    public function revisar(AprovadorEvolucao $agent): JsonResponse
+    {
+        return response()->json($agent->executar());
+    }
+
+    /** O Agent 4 está em que modo e quanto já usou do limite do dia (para a tela mostrar). */
+    public function aprovador(AprovadorEvolucao $agent): JsonResponse
+    {
+        return response()->json(['modo' => $agent->modo(), 'aprovadas_hoje' => $agent->aprovadasHoje(), 'limite_dia' => (int) config('services.evolucao.aprovador_limite_dia')]);
+    }
+
+    /** O master conferiu uma aprovação automática sorteada (a amostra). */
+    public function conferir(Request $request, string $codigo): JsonResponse
+    {
+        $p = EvolucaoProposta::where('codigo', $codigo)->where('auto_aprovada', true)->firstOrFail();
+        $p->update(['conferida_por' => (string) ($request->attributes->get('usuario')?->nome ?? 'master')]);
 
         return response()->json($p->fresh()->paraFront());
     }

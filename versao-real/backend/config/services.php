@@ -37,4 +37,13 @@ return [
         'token' => env('IA_API_TOKEN'),
     ],
 
+    // Agent 4 (Aprovador) da evolução assistida. Modo: desligado | sombra (só registra, o master decide) | automatico (aprova sozinho).
+    // O interruptor é EVOLUCAO_APROVADOR_MODO=desligado. Só passe para "automatico" depois de a taxa de acerto do modo sombra ser validada.
+    'evolucao' => [
+        'aprovador_modo' => env('EVOLUCAO_APROVADOR_MODO', 'sombra'),
+        'aprovador_limite_dia' => (int) env('EVOLUCAO_APROVADOR_LIMITE_DIA', 10),     // aprovações automáticas por dia (UTC-3)
+        'aprovador_por_execucao' => (int) env('EVOLUCAO_APROVADOR_POR_EXECUCAO', 3),  // propostas revisadas a cada execução (poupa a cota do modelo)
+        'aprovador_amostra_a_cada' => (int) env('EVOLUCAO_APROVADOR_AMOSTRA_A_CADA', 5), // 1 em cada N aprovações automáticas vai para conferência
+    ],
+
 ];

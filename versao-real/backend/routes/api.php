@@ -73,6 +73,9 @@ Route::middleware('autenticado')->group(function () {
         // Evolução assistida: os Agents propõem, o master aprova ou reprova.
         Route::get('evolucao', [EvolucaoController::class, 'index']);
         Route::post('evolucao/analisar', [EvolucaoController::class, 'analisar']);
+        Route::post('evolucao/revisar', [EvolucaoController::class, 'revisar']);
+        Route::get('evolucao/aprovador', [EvolucaoController::class, 'aprovador']);
+        Route::post('evolucao/{codigo}/conferir', [EvolucaoController::class, 'conferir']);
         Route::post('evolucao/{codigo}/decidir', [EvolucaoController::class, 'decidir']);
         Route::post('evolucao/{codigo}/desativar', [EvolucaoController::class, 'desativar']);
     });

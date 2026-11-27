@@ -174,4 +174,136 @@ class EvolucaoApiTest extends TestCase
 
         $this->semLogin()->getJson('/api/evolucao/catalogo')->assertUnauthorized();
     }
+
+    // ---- Agent 4 (Aprovador): modo sombra, automático, limite e interruptor ----
+
+    private function parecer(string $decisao = 'aprovar'): array
+    {
+        return ['decisao' => $decisao, 'motivo' => 'ok', 'condicoes' => [['id' => 'C1', 'ok' => true]], 'risco' => ['nivel' => 'baixo']];
+    }
+
+    private function fakeAprovador(string $decisao = 'aprovar'): void
+    {
+        Http::fake([
+            'ia.test/evolucao/revisar' => Http::response($this->parecer($decisao)),
+            'ia.test/evolucao/checar' => Http::response(['bloqueio' => false, 'achados' => []]),
+        ]);
+    }
+
+    public function test_modo_sombra_so_registra_o_parecer_e_nao_aprova_nada(): void
+    {
+        config(['services.evolucao.aprovador_modo' => 'sombra']);
+        $this->fakeAprovador('aprovar');
+        $this->pendente();
+
+        $this->postJson('/api/evolucao/revisar')->assertOk()->assertJsonPath('modo', 'sombra')->assertJsonPath('revisadas', 1)->assertJsonPath('aprovadas_automaticamente', 0);
+
+        $p = EvolucaoProposta::first();
+        $this->assertSame('pendente', $p->status);
+        $this->assertFalse($p->ativa);
+        $this->assertSame('aprovar', $p->revisao['decisao']);
+        $this->getJson('/api/evolucao/catalogo')->assertExactJson([]);
+        Http::assertNotSent(fn ($r) => str_ends_with($r->url(), '/evolucao/checar'));
+    }
+
+    public function test_nao_revisa_duas_vezes_a_mesma_proposta(): void
+    {
+        config(['services.evolucao.aprovador_modo' => 'sombra']);
+        $this->fakeAprovador();
+        $this->pendente();
+
+        $this->postJson('/api/evolucao/revisar')->assertJsonPath('revisadas', 1);
+        $this->postJson('/api/evolucao/revisar')->assertJsonPath('revisadas', 0);
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_desligado_nao_chama_a_api(): void
+    {
+        config(['services.evolucao.aprovador_modo' => 'desligado']);
+        Http::fake();
+        $this->pendente();
+
+        $this->postJson('/api/evolucao/revisar')->assertOk()->assertJsonPath('revisadas', 0);
+
+        Http::assertNothingSent();
+        $this->assertNull(EvolucaoProposta::first()->revisao);
+    }
+
+    public function test_modo_desconhecido_vale_como_desligado(): void
+    {
+        config(['services.evolucao.aprovador_modo' => 'qualquer']);
+        Http::fake();
+        $this->pendente();
+
+        $this->postJson('/api/evolucao/revisar')->assertJsonPath('modo', 'desligado');
+
+        Http::assertNothingSent();
+    }
+
+    public function test_modo_automatico_aprova_quando_o_agent_aprova_e_marca_quem_aprovou(): void
+    {
+        config(['services.evolucao.aprovador_modo' => 'automatico']);
+        $this->fakeAprovador('aprovar');
+        $this->pendente();
+
+        $this->postJson('/api/evolucao/revisar')->assertOk()->assertJsonPath('aprovadas_automaticamente', 1);
+
+        $p = EvolucaoProposta::first();
+        $this->assertSame('aprovada', $p->status);
+        $this->assertTrue($p->ativa && $p->auto_aprovada);
+        $this->assertSame('Agent de Aprovação', $p->decidida_por);
+        $this->getJson('/api/evolucao/catalogo')->assertJsonPath('0.nome', 'contar_clientes_por_cidade');
+    }
+
+    public function test_modo_automatico_nao_aprova_quando_o_agent_deixa_pendente_ou_o_tester_nao_recomenda(): void
+    {
+        config(['services.evolucao.aprovador_modo' => 'automatico']);
+        $this->fakeAprovador('deixar_pendente');
+        $this->pendente();
+        $this->postJson('/api/evolucao/revisar')->assertJsonPath('aprovadas_automaticamente', 0);
+        $this->assertSame('pendente', EvolucaoProposta::first()->status);
+
+        EvolucaoProposta::query()->delete();
+        $this->fakeAprovador('aprovar');
+        $this->pendente(['veredito' => 'revisar_com_atencao'])->update(['veredito' => 'revisar_com_atencao']);
+        $this->postJson('/api/evolucao/revisar')->assertJsonPath('aprovadas_automaticamente', 0);
+        $this->assertSame('pendente', EvolucaoProposta::first()->status);
+    }
+
+    public function test_limite_diario_segura_a_aprovacao_automatica(): void
+    {
+        config(['services.evolucao.aprovador_modo' => 'automatico', 'services.evolucao.aprovador_limite_dia' => 1]);
+        $this->fakeAprovador('aprovar');
+        $this->pendente();
+        $b = $this->pendente(['id' => 'EV-0002']);
+        $b->update(['codigo' => 'EV-0002']);
+
+        $this->postJson('/api/evolucao/revisar')->assertJsonPath('revisadas', 2)->assertJsonPath('aprovadas_automaticamente', 1);
+
+        $this->assertSame(1, EvolucaoProposta::where('auto_aprovada', true)->count());
+        $this->assertSame('pendente', EvolucaoProposta::where('codigo', 'EV-0002')->first()->status);
+    }
+
+    public function test_bloqueio_nas_checagens_refeitas_impede_a_aprovacao_automatica(): void
+    {
+        config(['services.evolucao.aprovador_modo' => 'automatico']);
+        Http::fake([
+            'ia.test/evolucao/revisar' => Http::response($this->parecer('aprovar')),
+            'ia.test/evolucao/checar' => Http::response(['bloqueio' => true, 'achados' => [['gravidade' => 'bloqueio', 'mensagem' => 'x']]]),
+        ]);
+        $this->pendente();
+
+        $this->postJson('/api/evolucao/revisar')->assertJsonPath('aprovadas_automaticamente', 0);
+
+        $this->assertSame('pendente', EvolucaoProposta::first()->status);
+    }
+
+    public function test_so_o_master_roda_o_agent_de_aprovacao(): void
+    {
+        $this->entrarComo($this->criarUsuario(Acesso::todas(), Usuario::ADMIN, 'admin@lume.test'));
+
+        $this->postJson('/api/evolucao/revisar')->assertForbidden();
+        $this->getJson('/api/evolucao/aprovador')->assertForbidden();
+    }
 }

@@ -9,9 +9,9 @@ class EvolucaoProposta extends Model
 {
     protected $table = 'evolucao_propostas';
 
-    protected $fillable = ['codigo', 'titulo', 'status', 'ativa', 'veredito', 'relatorio', 'decidida_por', 'decidida_em'];
+    protected $fillable = ['codigo', 'titulo', 'status', 'ativa', 'veredito', 'relatorio', 'decidida_por', 'decidida_em', 'revisao', 'revisao_em', 'auto_aprovada', 'amostra', 'conferida_por'];
 
-    protected $casts = ['relatorio' => 'array', 'ativa' => 'boolean', 'decidida_em' => 'datetime'];
+    protected $casts = ['relatorio' => 'array', 'revisao' => 'array', 'ativa' => 'boolean', 'auto_aprovada' => 'boolean', 'amostra' => 'boolean', 'decidida_em' => 'datetime', 'revisao_em' => 'datetime'];
 
     /** O que o front recebe: o relatório dos Agents + o estado que só o servidor decide. */
     public function paraFront(): array
@@ -21,6 +21,10 @@ class EvolucaoProposta extends Model
             'status' => $this->status,
             'ativa' => $this->ativa,
             'decisao' => $this->decidida_por ? ['por' => $this->decidida_por, 'em' => $this->decidida_em?->toIso8601String()] : null,
+            'revisao' => $this->revisao ? array_merge($this->revisao, ['feita_em' => $this->revisao_em?->toIso8601String()]) : null,
+            'auto_aprovada' => $this->auto_aprovada,
+            'amostra' => $this->amostra && ! $this->conferida_por,
+            'conferida_por' => $this->conferida_por,
             'criado_em' => $this->created_at?->toIso8601String(),
         ]);
     }
