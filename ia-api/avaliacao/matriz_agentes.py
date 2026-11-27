@@ -147,6 +147,17 @@ def casos() -> list[tuple[str, callable]]:
         return None
     saida.append(("texto: pontuação comum não é ataque e ataque de verdade é barrado", pontuacao_nao_e_ataque))
 
+    # tipo da pergunta: "número do orçamento" (identificador) lista; "número de orçamentos" conta
+    def numero_do_x_e_lista():
+        from evolucao.consulta import tipo_da_pergunta
+        esperado = {"qual número do orçamento que será devolvido hoje?": "listar", "qual o número da cobrança vencida?": "listar",
+                    "qual o número de orçamentos criados hoje?": "contar", "qual a quantidade de clientes novos?": "contar", "quantos orçamentos foram criados hoje?": "contar"}
+        for pergunta, tipo in esperado.items():
+            if tipo_da_pergunta(pergunta) != tipo:
+                return f"“{pergunta}” deu {tipo_da_pergunta(pergunta)}, esperado {tipo}"
+        return None
+    saida.append(("tipo da pergunta: número DO orçamento lista e número DE orçamentos conta", numero_do_x_e_lista))
+
     # Agent 4: o risco só é baixo para leitura em entidade livre e sem campo pessoal
     for e, d in ESQUEMA.items():
         def risco(e=e, d=d):

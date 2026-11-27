@@ -215,9 +215,10 @@ def pontuar(pergunta: str, spec: dict) -> float:
     return round(melhor, 3)
 
 
-_QUER_CONTAR = re.compile(r"^(e\s+)?(quantos|quantas|qual\s+(o\s+)?(numero|quantidade)|numero\s+de|quantidade\s+de)\b|\bquantos\b|\bquantas\b")
+# "qual o número DE orçamentos" conta; "qual o número DO orçamento que será devolvido" pergunta o identificador de cada orçamento (lista).
+_QUER_CONTAR = re.compile(r"^(e\s+)?(quantos|quantas|qual\s+(e\s+)?(o\s+|a\s+)?quantidade|qual\s+(e\s+)?(o\s+|a\s+)?numero\s+(de|dos|das|total)|numero\s+de|quantidade\s+de)\b|\bquantos\b|\bquantas\b")
 _QUER_SOMAR = re.compile(r"\b(soma|somar|somatorio|valor\s+total|quanto\s+(foi|ja|vai|ha|temos|tenho|recebi|faturei)|faturamento)\b")
-_QUER_LISTAR = re.compile(r"\b(nomes?|liste|listar|lista|listagem|quais|quem|mostre|mostrar|exiba|me\s+(d[aeê]|mostra)|detalh\w+)\b")
+_QUER_LISTAR = re.compile(r"\b(qual\s+(e\s+)?(o\s+|a\s+)?numero\s+(do|da)|nomes?|liste|listar|lista|listagem|quais|quem|mostre|mostrar|exiba|me\s+(d[aeê]|mostra)|detalh\w+)\b")
 
 
 def tipo_da_pergunta(pergunta: str) -> str | None:

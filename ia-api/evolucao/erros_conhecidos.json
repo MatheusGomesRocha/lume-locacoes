@@ -260,6 +260,26 @@
           "teste": "tests/test_catalogo_chat.py::test_ajuda_que_admite_nao_saber_nao_conta_como_resposta"
         }
       }
+    },
+    {
+      "id": "E14-numero-do-orcamento-era-contagem",
+      "titulo": "“Qual número do orçamento…” (o identificador) foi lido como pedido de contagem e a C15 barrou a consulta de listar (falso positivo)",
+      "visto_em": "proposta do dia 27/11 (C15)",
+      "status": "fechado",
+      "camadas": {
+        "codigo": {
+          "teste": "tests/test_catalogo_chat.py::test_numero_do_orcamento_e_lista_e_numero_de_orcamentos_e_contagem"
+        },
+        "checagem_fixa": {
+          "checagem": "C15"
+        },
+        "licao": {
+          "licao": "L09-tipo-da-pergunta"
+        },
+        "matriz": {
+          "matriz": "número DO orçamento lista"
+        }
+      }
     }
   ]
 }

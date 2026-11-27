@@ -344,3 +344,12 @@ def test_ajuda_que_admite_nao_saber_nao_conta_como_resposta(monkeypatch, cliente
     monkeypatch.setattr(main, "gerar_resposta", lambda *a, **k: "Não encontrei essa informação na ajuda. O número do orçamento é gerado automaticamente.")
     r = cliente.post("/chat", json={"pergunta": "qual é o número do orçamento"}).json()
     assert r["encontrou"] is False and "Registrei" in r["resposta"]
+
+
+def test_numero_do_orcamento_e_lista_e_numero_de_orcamentos_e_contagem():
+    from evolucao.consulta import tipo_da_pergunta
+    assert tipo_da_pergunta("qual número do orçamento que será devolvido hoje?") == "listar"
+    assert tipo_da_pergunta("qual o número da cobrança vencida?") == "listar"
+    assert tipo_da_pergunta("qual o número de orçamentos criados hoje?") == "contar"
+    assert tipo_da_pergunta("qual a quantidade de clientes novos?") == "contar"
+    assert tipo_da_pergunta("quantos orçamentos foram criados hoje?") == "contar"
