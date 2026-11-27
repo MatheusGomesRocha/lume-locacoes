@@ -159,7 +159,7 @@ def executar(spec: dict, params: dict, dados: dict[str, list[dict]], sessao: dic
 
 # --- busca: "essa pergunta é para esta consulta?" e "qual valor o usuário citou?" ---
 _VAZIAS = {"o", "a", "os", "as", "um", "uma", "de", "do", "da", "dos", "das", "no", "na", "nos", "nas", "em", "eu", "meu", "minha", "me", "no", "sistema",
-           "que", "e", "ou", "para", "pra", "por", "tipo", "tenho", "temos", "ha", "tem", "quantos", "quantas", "qual", "quais", "quanto", "ver", "mostre", "liste"}
+           "que", "e", "ou", "para", "pra", "por", "tipo", "tenho", "temos", "ha", "tem", "quantos", "quantas", "qual", "quais", "quanto", "ver", "mostre", "liste", "listar", "lista", "nomes", "nome", "consegue", "conseguir", "voce", "foram", "foi", "sao", "estao", "pode", "poderia", "gostaria", "saber", "quero", "queria", "favor", "existem", "existe"}
 
 
 _PERIODO = re.compile(r"(?:(?:ultim|proxim)[oa]s?\s+)?\d{1,4}\s*(?:dias?|semanas?|mes(?:es)?)\b|\b(?:ultim|proxim)[oa]s?\s+(?:dias|semanas?|mes(?:es)?)\b|\b(?:esta|essa|nesta|nessa)\s+semana\b|\bhoje\b")
@@ -174,6 +174,7 @@ def _termos(t) -> set[str]:
 def _termos_da_entidade(nome: str) -> set[str]:
     """"clientes" -> {clientes, cliente}; "orcamentos" -> {orcamentos, orcamento}: a pergunta pode vir no singular."""
     r = sem_acento((ESQUEMA.get(nome) or {}).get("rotulo", nome)).lower()
+    r = r.split()[0] if r else r  # "usuarios do sistema" -> "usuarios": a pergunta cita só a primeira palavra
     return {r, r.rstrip("s")} if r else set()
 
 

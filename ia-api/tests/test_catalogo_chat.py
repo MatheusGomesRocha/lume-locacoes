@@ -229,3 +229,13 @@ def test_reescrita_que_muda_o_pedido_ou_perde_o_assunto_vira_pergunta(monkeypatc
     assert duvida == "quantos pedidos foram feitos?"
     monkeypatch.setattr(main, "reformular_seguimento", lambda *a: None)
     assert main._completar_seguimento("e quais os nomes dos outros?", h)[1] == ""
+
+
+def test_pedido_longo_de_nomes_acha_a_consulta_do_mesmo_assunto(monkeypatch):
+    from app import main
+    contar = {"nome": "c_hoje", "descricao": "Conta clientes cadastrados hoje", "entidade": "clientes", "operacao": "contar", "permissao": "clientes.ver", "saida": [], "parametros": {},
+              "exemplos": ["quantos clientes cadastrados hoje", "total de clientes cadastrados hoje", "numero de clientes cadastrados hoje"], "palavras_chave": ["clientes", "cadastrados"], "sinonimos": {}, "filtros": []}
+    monkeypatch.setattr(main, "provedor_llm", object())
+    q = "você consegue me listar os NOMES dos clientes que foram cadastrados hoje?"
+    r = main._agente(q, [], main.PerguntaIn(pergunta=q, catalogo=[contar]))
+    assert r["encontrou"] is False and "listar" in r["resposta"] and not r.get("consultas")
