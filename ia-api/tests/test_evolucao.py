@@ -397,3 +397,43 @@ def test_periodo_relativo_com_parametro_chamado_pelo_numero_da_pergunta_e_conser
                                 "filtros": [{"campo": "criado_em", "op": "ultimos_dias", "parametro": "7"}], "parametros": {"7": {"tipo": "numero", "obrigatorio": True}},
                                 "expectativas": [{"descricao": "d", "params": {"7": 7}, "esperado_total": 2}], "perguntas": ["q"]}, {"q"})
     assert prop["expectativas"][0]["params"] == {"dias": 7}  # a expectativa acompanha o nome novo
+
+
+# --- EV-0012: janela de dias, papel_minimo e pergunta de outra entidade ---
+def _spec_recentes():
+    return {"nome": "clientes_recentes", "entidade": "clientes", "operacao": "contar", "permissao": "clientes.ver",
+            "filtros": [{"campo": "criado_em", "op": "ultimos_dias", "parametro": "dias"}],
+            "parametros": {"dias": {"tipo": "numero", "obrigatorio": True}},
+            "exemplos": ["Quantos clientes foram cadastrados nos últimos 7 dias?"]}
+
+
+def test_total_da_janela_por_datas():
+    from evolucao.agentes import _total_da_janela
+    s = _spec_recentes()
+    assert _total_da_janela(s, {"dias": 7}) == 2 and _total_da_janela(s, {"dias": 0}) == 0 and _total_da_janela(s, {"dias": 30}) == 3
+
+
+def test_refaz_total_errado_do_modelo_e_relata():
+    from evolucao.agentes import _caso, refazer_totais_de_janela
+    c = _caso("tester_llm", "execucao", "hoje", {"total": 1}, "admin", {"dias": 0})
+    avisos = refazer_totais_de_janela(_spec_recentes(), [c])
+    assert c["esperado"] == {"total": 0} and "refeito" in avisos[0]
+
+
+def test_papel_minimo_some_em_entidade_nao_restrita():
+    from evolucao.agentes import normalizar_spec
+    spec, avisos = normalizar_spec({**_spec_recentes(), "papel_minimo": "admin"})
+    assert "papel_minimo" not in spec and any("papel_minimo" in a for a in avisos)
+
+
+def test_tester_nao_espera_permissao_negada_a_quem_tem():
+    from evolucao.agentes import validar_casos_llm_com_relato
+    casos, r = validar_casos_llm_com_relato([{"descricao": "vendedor", "tipo": "permissao", "sessao": "vendedor", "esperado": {"erro": "permissao"}}], "contar", _spec_recentes())
+    assert casos == [] and r["descartados"]
+
+
+def test_pergunta_de_produtos_nao_cai_na_consulta_de_clientes():
+    from evolucao.consulta import buscar_consulta
+    s = _spec_recentes()
+    assert buscar_consulta("Quantos produtos foram cadastrados nos últimos 7 dias?", [s]) is None
+    assert buscar_consulta("Quantos clientes foram cadastrados nos últimos 7 dias?", [s]) is s

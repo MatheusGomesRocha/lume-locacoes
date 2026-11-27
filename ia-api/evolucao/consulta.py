@@ -161,10 +161,23 @@ def _termos(t) -> set[str]:
     return {p for p in palavras(t) if p not in _VAZIAS and len(p) > 1}
 
 
+def _termos_da_entidade(nome: str) -> set[str]:
+    """"clientes" -> {clientes, cliente}; "orcamentos" -> {orcamentos, orcamento}: a pergunta pode vir no singular."""
+    r = sem_acento((ESQUEMA.get(nome) or {}).get("rotulo", nome)).lower()
+    return {r, r.rstrip("s")} if r else set()
+
+
+def _fala_de_outra_entidade(q: set[str], entidade: str) -> bool:
+    """A pergunta cita outra entidade (ex.: produtos) e nunca a desta consulta (clientes)? Então não é desta consulta."""
+    if entidade not in ESQUEMA or q & _termos_da_entidade(entidade):
+        return False
+    return any(q & _termos_da_entidade(o) for o in ESQUEMA if o != entidade)
+
+
 def pontuar(pergunta: str, spec: dict) -> float:
     """0 a 1: o quanto a pergunta se parece com os exemplos e palavras-chave desta consulta."""
     q = _termos(pergunta)
-    if not q:
+    if not q or _fala_de_outra_entidade(q, spec.get("entidade", "")):
         return 0.0
     valores = {p for lista in (spec.get("sinonimos") or {}).values() for s in lista for p in _termos(s)}
     melhor = 0.0

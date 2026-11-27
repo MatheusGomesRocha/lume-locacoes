@@ -8,7 +8,7 @@ import hashlib
 import copy
 import json
 import re
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from app import ferramentas
 from evolucao import checagens
@@ -242,6 +242,10 @@ def normalizar_spec(bruta) -> tuple[dict, list[str]]:
             filtros.append(f)
     spec["filtros"], spec["parametros"], _, corrigidas = consertar_janela(filtros, spec["parametros"])
     descartadas += [f"corrigido: {c}" for c in corrigidas]
+    if spec.get("papel_minimo") and not (ESQUEMA.get(spec.get("entidade")) or {}).get("so_admin", True):
+        # O papel mínimo só vale em entidade restrita; em clientes/produtos quem manda é a permissão da tela. Deixar "admin" escrito
+        # prometeria um bloqueio que não existe (o vendedor com clientes.ver consulta). Melhor tirar do que prometer.
+        descartadas.append(f"corrigido: papel_minimo “{spec.pop('papel_minimo')}” removido: {spec['entidade']} não é restrita a administradores, vale só a permissão {spec.get('permissao')}")
     sin = b.get("sinonimos") if isinstance(b.get("sinonimos"), dict) else {}
     spec["sinonimos"] = {_s(k, 40): _lista_s(v, 8, 40) for k, v in list(sin.items())[:12]}
     return spec, descartadas
@@ -347,6 +351,41 @@ def casos_da_proposta(proposta: dict, spec: dict | None = None) -> list[dict]:
 FAMILIA_EXECUCAO = {"execucao", "permissao", "parametro", "vazamento"}
 
 
+def _total_da_janela(spec: dict, params: dict) -> int | None:
+    """Contagem de "nos últimos N dias" feita só com datas, sem usar o executor (fonte independente). None se não for esse formato."""
+    fs = spec.get("filtros") or []
+    if spec.get("operacao") != "contar" or len(fs) != 1 or fs[0].get("op") != "ultimos_dias" or spec.get("entidade") not in DADOS_TESTE:
+        return None
+    n = params.get(fs[0].get("parametro"))
+    if isinstance(n, bool) or not isinstance(n, int) or not 0 <= n <= 3650:
+        return None
+    hoje = date.fromisoformat(HOJE_TESTE)
+    de = hoje - timedelta(days=n)
+    return sum(1 for l in DADOS_TESTE[spec["entidade"]] if l.get(fs[0]["campo"]) and de <= date.fromisoformat(str(l[fs[0]["campo"]])[:10]) <= hoje)
+
+
+def refazer_totais_de_janela(spec: dict, casos: list[dict]) -> list[str]:
+    """Modelo erra conta de data (esperou 1 cliente "hoje" quando ninguém foi cadastrado hoje). O total esperado desses casos é
+    refeito por contagem de datas, antes de selar, e a troca vai para o relatório."""
+    avisos = []
+    for c in casos:
+        if c["tipo"] != "execucao" or c["origem"] == "codigo" or "total" not in c["esperado"] or c.get("sem_dados") or c["sessao"] not in ("master", "admin", "vendedor"):
+            continue
+        certo = _total_da_janela(spec, c.get("params") or {})
+        if certo is not None and certo != c["esperado"]["total"]:
+            avisos.append(f"“{c['descricao']}”: o esperado {c['esperado']['total']} foi refeito para {certo} (contagem por datas nos dados de teste)")
+            c["esperado"] = {**c["esperado"], "total": certo}
+    return avisos
+
+
+def _permissao_esperada_errada(spec: dict, b: dict) -> bool:
+    """O Tester esperou erro de permissão para uma sessão que a consulta deixa passar (tem a permissão e a entidade não é restrita)?"""
+    sess = SESSOES_TESTE.get(b.get("sessao", "master")) or {}
+    ent = ESQUEMA.get(spec.get("entidade")) or {}
+    return (b.get("esperado") or {}).get("erro") == "permissao" and spec.get("permissao") in sess.get("permissoes", []) \
+        and (not ent.get("so_admin") or sess.get("papel") in ("master", "admin"))
+
+
 def _tipo_real(declarado: str, esperado: dict) -> str:
     """O tipo que o `esperado` realmente tem. Quem diz o que o caso É não é o rótulo do modelo, são as chaves do resultado esperado."""
     if "acha" in esperado:
@@ -356,7 +395,7 @@ def _tipo_real(declarado: str, esperado: dict) -> str:
     return declarado if declarado in FAMILIA_EXECUCAO else "execucao"
 
 
-def validar_casos_llm_com_relato(brutos, operacao: str | None = None) -> tuple[list[dict], dict]:
+def validar_casos_llm_com_relato(brutos, operacao: str | None = None, spec: dict | None = None) -> tuple[list[dict], dict]:
     """Casos do Tester-modelo depois de passar pelo código. Devolve (casos, relato do que foi corrigido ou descartado).
 
     O "ruído" do Tester são casos mal montados, não consultas erradas. Aqui o código arruma o que dá para arrumar com certeza
@@ -368,6 +407,9 @@ def validar_casos_llm_com_relato(brutos, operacao: str | None = None) -> tuple[l
         nome = _s(b.get("descricao"), 80) if isinstance(b, dict) else ""
         if not isinstance(b, dict) or b.get("tipo") not in TIPOS_DE_CASO or b.get("sessao", "master") not in SESSOES_TESTE or not isinstance(b.get("esperado"), dict):
             relato["descartados"].append(f"“{nome or 'caso sem descrição'}”: formato inválido (tipo, sessão ou esperado)")
+            continue
+        if spec and _permissao_esperada_errada(spec, b):
+            relato["descartados"].append(f"“{nome}”: esperava erro de permissão numa sessão que tem a permissão {spec.get('permissao')} e a entidade não é restrita")
             continue
         esperado = {k: v for k, v in b["esperado"].items() if k in ("total", "soma", "erro", "acha", "params") and (not isinstance(v, bool) or k == "acha")}
         if operacao and operacao != "somar" and "soma" in esperado:
@@ -443,7 +485,7 @@ class Tester:
             try:
                 brutos = chamar_json(self.provedor, self.limitador, SISTEMA_TESTER, json.dumps(
                     {"ESQUEMA": resumo_do_esquema(), "DADOS_DE_TESTE": DADOS_TESTE, "HOJE_NOS_TESTES": HOJE_TESTE, "SESSOES": SESSOES_TESTE, "PROPOSTA": proposta, "CONSULTA": spec}, ensure_ascii=False))
-                validos, ruido = validar_casos_llm_com_relato(brutos.get("casos"), spec.get("operacao"))
+                validos, ruido = validar_casos_llm_com_relato(brutos.get("casos"), spec.get("operacao"), spec)
                 casos += validos
             except ErroAgente as e:
                 limites.append(f"o Tester não conseguiu escrever casos próprios ({e}); valeram só os casos do código e do Analista")
@@ -460,6 +502,7 @@ class Tester:
         else:
             limites.append("sem modelo: valeram as checagens fixas, os casos do código e as expectativas do Analista")
 
+        ruido["reclassificados"] += refazer_totais_de_janela(spec, casos)
         selo, selado_em = selar(casos), self.agora().isoformat(timespec="seconds")   # 1) esperado escrito e selado...
         resultados = rodar_casos(spec, casos, selo)                                   # 2) ...só então executado
         executado_em = self.agora().isoformat(timespec="seconds")
