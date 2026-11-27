@@ -24,11 +24,11 @@ from app.busca import BaseConhecimento, Contexto, Resultado, pede_dados_do_siste
 from app.semantica import NOTA_LEXICAL_CONFIANTE, criar_indice_do_ambiente, vencedor_confiavel
 from evolucao import checagens
 from evolucao.agentes import normalizar_spec
-from evolucao.consulta import buscar_consulta, extrair_parametros
+from evolucao.consulta import buscar_consulta, extrair_parametros, tipo_da_pergunta
 from evolucao.esquema import ESQUEMA
 from evolucao.pipeline import gerar_relatorios
 from app.limite import LimitadorDeRequisicoes
-from app.llm import AJUDA, INSTRUCOES, INSTRUCOES_AGENTE, LimitadorDiario, criar_provedor_do_ambiente, decidir_acao, gerar_resposta, limite_diario_do_ambiente, redigir_com_dados
+from app.llm import AJUDA, INSTRUCOES, INSTRUCOES_AGENTE, LimitadorDiario, criar_provedor_do_ambiente, decidir_acao, gerar_resposta, limite_diario_do_ambiente, redigir_com_dados, reformular_seguimento
 
 PASTA_DADOS = Path(__file__).resolve().parent.parent / "data"
 
@@ -222,6 +222,19 @@ def texto_do_catalogo(spec: dict, resultado: Any) -> str:
     return "\n".join(partes)
 
 
+def _completar_seguimento(pergunta: str, historico: list[str]) -> str:
+    """"e quais os nomes deles?" vira a pergunta completa, usando o modelo e a conversa. Sem modelo ou sem seguimento, volta igual."""
+    if not (historico and ferramentas.parece_seguimento(pergunta, historico)):
+        return pergunta
+    chave_seg = chave_da_conversa("seguimento", VERSAO_DO_CONTEUDO, pergunta, historico, None)
+    nova = cache.obter(chave_seg)
+    if nova is None:
+        nova = reformular_seguimento(provedor_llm, limitador_llm, pergunta, historico)
+        if nova:
+            cache.guardar(chave_seg, nova)
+    return nova or pergunta
+
+
 def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | None:
     """Consultas, cadastros e exclusões. None = não é com o agente, segue para o FAQ."""
     resultados = ferramentas.validar_resultados(dados.resultados)
@@ -252,6 +265,12 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
             if _faltando(spec, params):
                 args["pergunta"] = pergunta[:300]
             return _resposta_agente("", consultas=[{"nome": ferramentas.CATALOGO, "args": args}], gerada_por_llm=False)
+    if dados.catalogo and not ferramentas.pede_acao(pergunta) and tipo_da_pergunta(pergunta) in ("listar", "somar"):
+        parecida = buscar_consulta(pergunta, specs_validas(dados.catalogo), por_tipo=False)
+        if parecida:  # existe consulta do mesmo assunto, mas de outro tipo (sabe contar, não sabe listar): diz isso e deixa para os Agents
+            quer = "listar" if tipo_da_pergunta(pergunta) == "listar" else "somar"
+            return _resposta_agente(f"Ainda não consigo {quer} isso: só sei {'contar' if parecida.get('operacao') == 'contar' else parecida.get('operacao')} ({parecida.get('descricao', '')[:80]}). "
+                                    "Não consegui responder como você pediu; registrei a pergunta para o Master analisar.", encontrou=False, gerada_por_llm=False)
     if provedor_llm is None or not ferramentas.parece_pedido_de_acao_ou_dados(pergunta, historico):
         return None
     chave = chave_da_conversa("decisao", VERSAO_DO_CONTEUDO, pergunta, historico, dados.ultimo_id, dados.hoje or "")
@@ -368,9 +387,10 @@ def _responder(dados: PerguntaIn):
     if papo:
         return {"encontrou": True, "resposta": papo, "fonte": None, "confianca": 1.0, "relacionadas": [], "usou_contexto": False, "gerada_por_llm": False}
 
-    da_ferramenta = _agente(pergunta, contexto.perguntas_anteriores, dados)
+    completa = _completar_seguimento(pergunta, contexto.perguntas_anteriores)
+    da_ferramenta = _agente(completa, contexto.perguntas_anteriores, dados)
     if da_ferramenta is not None:
-        return da_ferramenta
+        return {**da_ferramenta, **({"pergunta_completa": completa} if completa != pergunta else {})}
 
     resultados, usou_contexto = base_local.buscar_com_contexto(pergunta, contexto, limite=4)
     melhor = resultados[0] if resultados else None

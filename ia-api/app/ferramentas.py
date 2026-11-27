@@ -260,3 +260,17 @@ def parece_pedido_de_acao_ou_dados(pergunta: str, historico: list[str] | None = 
         anterior = _sem_acento(historico[-1])
         return bool(_ACAO.search(anterior) and not _COMO.search(anterior)) or bool(_DADOS.search(anterior))
     return False
+
+
+_SEGUIMENTO = re.compile(r"^e\s|\b(del[ea]s?|dess[ea]s?|ess[ea]s?|el[ea]s?|nest[ea]s?|dest[ea]s?)\b")
+
+
+def parece_seguimento(pergunta: str, historico: list[str] | None = None) -> bool:
+    """"e quais os nomes deles?", "e desses, quantos ativos?": curta e depende da conversa. Só então vale gastar o modelo para reformular."""
+    p = _sem_acento(pergunta).strip()
+    if len(p.split()) > 9 or not _SEGUIMENTO.search(p):
+        return False
+    if historico is None:
+        return True
+    anterior = _sem_acento(historico[-1]) if historico else ""
+    return bool(_DADOS.search(anterior)) and not _COMO.search(anterior)  # só conversa de dados; "e para editar?" é de ajuda e segue o fluxo dela

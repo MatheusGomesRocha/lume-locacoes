@@ -166,3 +166,36 @@ def test_proximos_dias_vai_de_hoje_ate_hoje_mais_n():
     assert extrair_parametros("quais orçamentos devolvem nos próximos 15 dias?", spec) == {"dias": 15}
     assert extrair_parametros("o que devolve hoje?", spec) == {"dias": 0}
     assert extrair_parametros("devoluções na próxima semana", spec) == {"dias": 7}
+
+
+def test_tipo_da_pergunta_separa_contar_de_listar():
+    from evolucao.consulta import tipo_da_pergunta as t
+    assert t("quantos clientes foram cadastrados hoje?") == "contar"
+    assert t("você consegue me listar os NOMES dos clientes que foram cadastrados hoje?") == "listar"
+    assert t("quais os nomes deles?") == "listar"
+    assert t("e quantos são ativos?") == "contar"
+    assert t("qual o valor total das cobranças pagas?") == "somar"
+    assert t("clientes cadastrados hoje") is None
+
+
+def test_consulta_de_contar_nao_responde_pedido_de_nomes():
+    from evolucao.consulta import buscar_consulta
+    contar = {"nome": "c_hoje", "descricao": "d", "entidade": "clientes", "operacao": "contar", "exemplos": ["quantos clientes cadastrados hoje"], "palavras_chave": ["clientes", "cadastrados"]}
+    assert buscar_consulta("quantos clientes foram cadastrados hoje?", [contar]) is contar
+    assert buscar_consulta("quais os nomes dos clientes cadastrados hoje?", [contar]) is None
+    assert buscar_consulta("quais os nomes dos clientes cadastrados hoje?", [contar], por_tipo=False) is contar
+
+
+def test_seguimento_e_reformulado_com_o_historico(monkeypatch):
+    from app import ferramentas, main
+    assert ferramentas.parece_seguimento("e qual os nomes deles?")
+    assert not ferramentas.parece_seguimento("quantos clientes foram cadastrados hoje?")
+    chamadas = []
+    monkeypatch.setattr(main, "provedor_llm", object())
+    monkeypatch.setattr(main, "reformular_seguimento", lambda p, l, q, h: chamadas.append((q, h)) or "quais os nomes dos clientes cadastrados hoje?")
+    contar = {"nome": "c_hoje", "descricao": "Conta clientes cadastrados hoje", "entidade": "clientes", "operacao": "contar", "permissao": "clientes.ver", "saida": [], "parametros": {},
+              "exemplos": ["quantos clientes cadastrados hoje", "total de clientes cadastrados hoje", "numero de clientes cadastrados hoje"], "palavras_chave": ["clientes", "cadastrados"], "sinonimos": {}, "filtros": []}
+    completa = main._completar_seguimento("e qual os nomes deles?", ["quantos clientes foram cadastrados hoje?"])
+    assert completa == "quais os nomes dos clientes cadastrados hoje?"
+    r = main._agente(completa, ["quantos clientes foram cadastrados hoje?"], main.PerguntaIn(pergunta=completa, catalogo=[contar]))
+    assert chamadas and r["encontrou"] is False and "listar" in r["resposta"] and not r.get("consultas")

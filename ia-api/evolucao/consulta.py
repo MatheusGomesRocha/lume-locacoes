@@ -201,8 +201,30 @@ def pontuar(pergunta: str, spec: dict) -> float:
     return round(melhor, 3)
 
 
-def buscar_consulta(pergunta: str, specs: list[dict], minimo: float = 0.5, margem: float = 0.1) -> dict | None:
-    """A consulta que responde a pergunta, ou None quando não há uma com clareza (nunca adivinha entre duas)."""
+_QUER_CONTAR = re.compile(r"^(e\s+)?(quantos|quantas|qual\s+(o\s+)?(numero|quantidade)|numero\s+de|quantidade\s+de)\b|\bquantos\b|\bquantas\b")
+_QUER_SOMAR = re.compile(r"\b(soma|somar|somatorio|valor\s+total|quanto\s+(foi|ja|vai|ha|temos|tenho|recebi|faturei)|faturamento)\b")
+_QUER_LISTAR = re.compile(r"\b(nomes?|liste|listar|lista|listagem|quais|quem|mostre|mostrar|exiba|me\s+(d[aeê]|mostra)|detalh\w+)\b")
+
+
+def tipo_da_pergunta(pergunta: str) -> str | None:
+    """O que a pessoa quer: "contar" (quantos), "somar" (valor total) ou "listar" (nomes, quais, quem). None = não dá para saber.
+    "Quantos clientes?" e "Quais os nomes dos clientes?" têm as mesmas palavras de assunto, mas pedem coisas diferentes."""
+    t = sem_acento(pergunta)
+    if _QUER_LISTAR.search(t) and not re.match(r"^(e\s+)?quantos|^(e\s+)?quantas", t):
+        return "listar"
+    if _QUER_SOMAR.search(t):
+        return "somar"
+    if _QUER_CONTAR.search(t):
+        return "contar"
+    return None
+
+
+def buscar_consulta(pergunta: str, specs: list[dict], minimo: float = 0.5, margem: float = 0.1, por_tipo: bool = True) -> dict | None:
+    """A consulta que responde a pergunta, ou None quando não há uma com clareza (nunca adivinha entre duas).
+    Com `por_tipo`, só vale consulta do mesmo tipo do pedido: contar não responde "quais os nomes"."""
+    tipo = tipo_da_pergunta(pergunta) if por_tipo else None
+    if tipo:
+        specs = [s for s in specs if s.get("operacao") == tipo]
     notas = sorted(((pontuar(pergunta, s), s) for s in specs), key=lambda x: -x[0])
     if not notas or notas[0][0] < minimo:
         return None

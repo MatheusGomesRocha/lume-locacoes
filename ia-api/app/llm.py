@@ -274,3 +274,25 @@ def redigir_com_dados(provedor: Provedor | None, limitador: LimitadorDiario, per
     except ErroLLM as e:
         log.warning("LLM indisponível para redigir com dados (%s)", e)
         return None
+
+
+INSTRUCOES_SEGUIMENTO = (
+    "Você reescreve a ÚLTIMA pergunta de uma conversa como uma pergunta completa, que se entende sozinha, usando as perguntas anteriores. "
+    "Exemplo: anteriores ['quantos clientes foram cadastrados hoje?'], última 'e quais os nomes deles?' -> 'quais os nomes dos clientes cadastrados hoje?'. "
+    "Mantenha o que a última pergunta pede (nomes, quantidade, valor) e traga das anteriores o assunto e o período. "
+    "Se a última pergunta já se entende sozinha, devolva-a igual. Responda SÓ com a pergunta, numa linha, sem aspas."
+)
+
+
+def reformular_seguimento(provedor: Provedor | None, limitador: LimitadorDiario, pergunta: str, historico: list[str]) -> str | None:
+    """"e quais os nomes deles?" -> "quais os nomes dos clientes cadastrados hoje?". None = não deu (segue com a pergunta como veio)."""
+    if provedor is None or not historico or not limitador.permitir():
+        return None
+    usuario = "PERGUNTAS ANTERIORES:\n" + "\n".join(f"- {p}" for p in historico[-3:]) + f"\n\nÚLTIMA PERGUNTA: {pergunta}"
+    try:
+        saida = provedor.gerar(INSTRUCOES_SEGUIMENTO, usuario).strip().strip("\"'").splitlines()
+    except ErroLLM as e:
+        log.warning("LLM indisponível para reformular (%s)", e)
+        return None
+    nova = saida[0].strip() if saida else ""
+    return nova if 4 <= len(nova) <= 300 else None
