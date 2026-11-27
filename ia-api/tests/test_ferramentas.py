@@ -237,3 +237,11 @@ def test_orcamentos_filtra_por_devolucao_e_cobrancas_por_vencimento():
     assert r["args"] == {"devolucao_de": "2026-11-26"}
     r = f.validar_chamada("consultar_cobrancas", {"vencimento_de": "2026-11-26", "vencimento_ate": "2026-12-03"})
     assert r["args"] == {"situacao": "todos", "vencimento_de": "2026-11-26", "vencimento_ate": "2026-12-03"}
+
+
+def test_pergunta_de_dado_com_verbo_de_cadastro_nao_e_pedido_de_acao():
+    from app.ferramentas import pede_acao
+    for p in ["Quantos clientes foram cadastrados nos últimos 7 dias?", "clientes cadastrados nas últimas 2 semanas", "quais orçamentos foram excluídos?", "quantos produtos novos temos?"]:
+        assert not pede_acao(p), p
+    for p in ["cadastre o cliente João", "crie um orçamento para Maria", "exclua o produto MS-01", "novo cliente Ana de Sobral"]:
+        assert pede_acao(p), p

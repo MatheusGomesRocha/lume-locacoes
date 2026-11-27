@@ -231,10 +231,19 @@ def fala_de_usuario_do_sistema(pergunta: str) -> bool:
     return bool(_USUARIO.search(p)) and not _ALVO_CERTO.search(p)
 
 
+_PARTICIPIO = re.compile(r"\b\w{3,}(?:ados?|adas?|idos?|idas?)\b")
+_PERGUNTA_DE_DADO = re.compile(r"^\s*(quantos|quantas|quanto|qual|quais)\b")
+
+
 def pede_acao(pergunta: str) -> bool:
-    """Pede para criar/cadastrar/excluir algo (e não é uma dúvida de 'como fazer')."""
+    """Pede para criar/cadastrar/excluir algo (e não é uma dúvida de 'como fazer').
+
+    "Quantos clientes foram cadastrados nos últimos 7 dias?" descreve um dado, não manda cadastrar: pergunta aberta com
+    quantos/qual/quais é consulta, e um particípio ("cadastrados", "excluídas") nunca é um pedido."""
     p = _sem_acento(pergunta)
-    return bool(_ACAO.search(p)) and not _COMO.search(p)
+    if _PERGUNTA_DE_DADO.search(p):
+        return False
+    return bool(_ACAO.search(_PARTICIPIO.sub(" ", p))) and not _COMO.search(p)
 
 
 def parece_pedido_de_acao_ou_dados(pergunta: str, historico: list[str] | None = None) -> bool:

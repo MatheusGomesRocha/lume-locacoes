@@ -62,7 +62,7 @@ def test_evolucao_devolve_relatorios_com_ids_a_partir_do_numero(cliente, monkeyp
         return [{"id": proximo_id(0)}]
 
     monkeypatch.setattr(main, "gerar_relatorios", falso)
-    r = cliente.post("/evolucao/propor", json={"perguntas": [{"pergunta": "quantos usuários master?"}], "catalogo": [SPEC], "proximo_numero": 7}).json()
+    r = cliente.post("/evolucao/propor", json={"perguntas": [{"pergunta": "total de cobranças pagas"}], "catalogo": [SPEC], "proximo_numero": 7}).json()
     assert r == {"relatorios": [{"id": "EV-0007"}], "ignoradas": []} and visto["ids"] == ["EV-0007", "EV-0008"] and len(visto["catalogo"]) == 1
 
 
@@ -133,3 +133,25 @@ def test_parametro_de_texto_vai_ao_front_com_a_pergunta_em_vez_de_travar(cliente
             "filtros": [{"campo": "categoria", "op": "igual", "parametro": "cat"}], "sinonimos": {}}
     r = cliente.post("/chat", json={"pergunta": "Qual o total de unidades em estoque da categoria Cadeiras?", "catalogo": [spec]}).json()
     assert r["consultas"][0]["args"]["pergunta"].startswith("Qual o total") and r["consultas"][0]["args"]["params"] == {}
+
+
+SPEC_RECENTES = {"nome": "clientes_cadastrados_recentemente", "descricao": "Conta clientes cadastrados nos últimos dias", "entidade": "clientes", "operacao": "contar",
+                 "permissao": "clientes.ver", "saida": [], "palavras_chave": ["clientes", "cadastrados"], "sinonimos": {},
+                 "exemplos": ["Quantos Clientes cadastrados no últimos 7 dias existem no sistema?", "Quantos clientes novos nos últimos 30 dias?", "Clientes cadastrados hoje"],
+                 "parametros": {"dias": {"tipo": "numero", "obrigatorio": True}}, "filtros": [{"campo": "criado_em", "op": "ultimos_dias", "parametro": "dias"}]}
+
+
+def test_mesma_pergunta_com_outro_periodo_usa_a_consulta_aprovada(cliente):
+    for pergunta, dias in [("quantos clientes foram cadastrados nos últimos 15 dias?", 15), ("clientes cadastrados nas últimas 2 semanas", 14), ("quantos clientes cadastrei hoje", 0)]:
+        r = cliente.post("/chat", json={"pergunta": pergunta, "catalogo": [SPEC_RECENTES], "hoje": "2026-11-26"}).json()
+        assert r["consultas"][0]["args"] == {"nome": "clientes_cadastrados_recentemente", "params": {"dias": dias}}, pergunta
+
+
+def test_agents_nao_recebem_o_que_a_consulta_aprovada_ja_responde(cliente, monkeypatch):
+    enviadas = []
+    monkeypatch.setattr(main, "provedor_llm", object())
+    monkeypatch.setattr(main, "gerar_relatorios", lambda *a, **k: enviadas.append([p["pergunta"] for p in a[2]]) or [])
+    corpo = {"perguntas": [{"pergunta": "quantos clientes foram cadastrados nos últimos 15 dias?"}, {"pergunta": "quantos clientes são de Sobral?"}], "catalogo": [SPEC_RECENTES]}
+    r = cliente.post("/evolucao/propor", json=corpo).json()
+    assert enviadas == [["quantos clientes são de Sobral?"]]
+    assert len(r["ignoradas"]) == 1 and "clientes_cadastrados_recentemente" in r["ignoradas"][0]["motivo"]

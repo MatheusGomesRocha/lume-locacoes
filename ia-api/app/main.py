@@ -298,11 +298,16 @@ def evolucao_propor(dados: EvolucaoIn):
     if provedor_llm is None:
         raise HTTPException(status_code=503, detail="Os Agents precisam do modelo (GEMINI_API_KEY) e ele não está configurado.")
     ignoradas = [{"pergunta": p.pergunta, "motivo": f"o sistema não guarda {i['atributo']}: nenhuma consulta responde"} for p in dados.perguntas if (i := pergunta_impossivel(p.pergunta))]
-    validas = [p.model_dump() for p in dados.perguntas if not pergunta_impossivel(p.pergunta)]
+    specs = specs_validas(dados.catalogo)
+    for p in dados.perguntas:  # a consulta aprovada já responde (só muda o valor, ex.: 7 -> 15 dias): não é trabalho novo para os Agents
+        if not pergunta_impossivel(p.pergunta) and (ja := buscar_consulta(p.pergunta, specs)):
+            ignoradas.append({"pergunta": p.pergunta, "motivo": f"já respondida pela consulta aprovada “{ja['nome']}” (só muda o valor do parâmetro)"})
+    descartar = {i["pergunta"] for i in ignoradas}
+    validas = [p.model_dump() for p in dados.perguntas if p.pergunta not in descartar]
     if not validas:
         return {"relatorios": [], "ignoradas": ignoradas}
     try:
-        relatorios = gerar_relatorios(provedor_llm, limitador_llm, validas, specs_validas(dados.catalogo),
+        relatorios = gerar_relatorios(provedor_llm, limitador_llm, validas, specs,
                                       lambda i: f"EV-{dados.proximo_numero + i:04d}")
     except Exception as e:  # ErroAgente, cota, rede: o Master vê o motivo em vez de um erro mudo
         raise HTTPException(status_code=502, detail=f"Os Agents não conseguiram terminar: {str(e)[:200]}") from None

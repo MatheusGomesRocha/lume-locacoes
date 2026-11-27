@@ -167,8 +167,8 @@ def _regras_de_modulo(spec: dict) -> list[dict]:
         for x in spec.get("filtros", []):
             if x.get("campo") not in ESQUEMA["orcamentos"]["campos"]:
                 continue
-            if ESQUEMA["orcamentos"]["campos"][x["campo"]]["tipo"] == "data" and x["campo"] not in ("data_retirada", "data_devolucao"):
-                f.append(_a("ORC-PERIODO", "bloqueio", "filtro de período em orçamento só pode usar data_retirada ou data_devolucao"))
+            if ESQUEMA["orcamentos"]["campos"][x["campo"]]["tipo"] == "data" and x["campo"] not in ("data_retirada", "data_devolucao", "criado_em"):
+                f.append(_a("ORC-PERIODO", "bloqueio", "filtro de período em orçamento só pode usar data_retirada, data_devolucao ou criado_em (quando o orçamento foi criado)"))
     if ent == "pagamentos" and spec.get("permissao") != "financeiro.ver":
         f.append(_a("FIN-PERM", "bloqueio", "cobranças exigem financeiro.ver"))
     if ent == "usuarios" and set(saida) & {"email", "senha"}:

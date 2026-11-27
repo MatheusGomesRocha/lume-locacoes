@@ -16,6 +16,8 @@ jobs:
         with: { python-version: '3.12' }
       - run: pip install -r requirements.txt
       # A 1ª chamada acorda o servidor gratuito do Render (~50 s); o cliente espera até 60 s.
+      # Matriz gerada do esquema (impossível, mesma consulta com outro período...): responde por código, não gasta o Gemini.
+      - run: python -m avaliacao.matriz --url https://lume-ia.onrender.com --md matriz.md
       - run: python -m avaliacao --url https://lume-ia.onrender.com --minimo 0.9 --md relatorio.md --salvar respostas.json
       # Agente: as 15 conversas contra a API publicada (o Gemini entende o 1º pedido de verdade) + LLM-as-judge.
       # O juiz precisa do segredo GEMINI_API_KEY (Settings > Secrets > Actions); sem ele, só a parte exata roda.
@@ -23,12 +25,13 @@ jobs:
         run: python -m avaliacao --agente --url https://lume-ia.onrender.com --juiz --minimo 0.85 --md relatorio-agente.md --salvar conversas-agente.json
         env: { GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}', IA_JUIZ_MODELO: '${{ vars.IA_JUIZ_MODELO }}' }
       - if: always()
-        run: cat relatorio.md relatorio-agente.md >> "$GITHUB_STEP_SUMMARY" || true
+        run: cat matriz.md relatorio.md relatorio-agente.md >> "$GITHUB_STEP_SUMMARY" || true
       - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: avaliacao-semanal
           path: |
+            ia-api/matriz.md
             ia-api/relatorio.md
             ia-api/respostas.json
             ia-api/relatorio-agente.md

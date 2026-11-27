@@ -62,7 +62,7 @@ PERMISSOES_VALIDAS = {
 REGRAS_DE_MODULO = {
     "orcamentos": [
         "ORC-DATAS: data de retirada e data de devolução são obrigatórias em todo orçamento; quem mostra uma, mostra a outra.",
-        "ORC-PERIODO: filtro de período usa data_retirada ou data_devolucao, e 'de' nunca pode ser depois de 'até'.",
+        "ORC-PERIODO: filtro de período usa data_retirada, data_devolucao ou criado_em (quando o orçamento foi criado), e 'de' nunca pode ser depois de 'até'.",
     ],
     "usuarios": ["USR-ADMIN: só master e administrador consultam usuários; e-mail e senha nunca saem."],
     "grupos": ["USR-ADMIN: só master e administrador consultam grupos de permissão."],

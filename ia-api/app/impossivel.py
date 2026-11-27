@@ -28,17 +28,33 @@ ENTIDADES: dict[str, tuple[re.Pattern, str, str]] = {
 
 _CIDADES = r"fortaleza|sobral|caucaia|maracanau|juazeiro do norte|crato|eusebio|aquiraz|sao paulo|rio de janeiro|recife|salvador|brasilia|belo horizonte|curitiba|porto alegre|natal|teresina"
 
-# conceito -> (rótulo, como aparece na pergunta, entidades que GUARDAM isso)
+# conceito -> nomes de campo que o guardam. "Quem guarda" sai do ESQUEMA: se um dia usuarios ganhar o campo cidade, a pergunta
+# deixa de ser impossível sem ninguém lembrar de mexer aqui.
+CAMPOS_DO_CONCEITO: dict[str, set[str]] = {
+    "localizacao": {"cidade", "bairro", "endereco", "estado", "cep", "municipio", "localizacao"},
+    "idade": {"idade", "nascimento", "data_nascimento"}, "genero": {"sexo", "genero"},
+    "cargo": {"cargo", "salario", "departamento", "setor", "ramal", "turno"},
+    "autoria": {"criado_por", "responsavel", "vendedor", "atendente"}, "acesso": {"ultimo_acesso", "ultimo_login"},
+    "especificacao": {"marca", "fornecedor", "fabricante", "peso", "altura", "largura", "comprimento", "dimensoes", "tamanho", "voltagem", "potencia"},
+    "imagem": {"foto", "imagem", "logo"},
+}
+
+
+def quem_guarda(conceito: str) -> set[str]:
+    return {e for e, d in ESQUEMA.items() if CAMPOS_DO_CONCEITO[conceito] & set(d["campos"])}
+
+
+# conceito -> (rótulo, como aparece na pergunta, entidades que GUARDAM isso: calculado do esquema)
 ATRIBUTOS: dict[str, tuple[str, re.Pattern, set[str]]] = {
     "localizacao": ("cidade ou localização", re.compile(
-        r"\b(resid\w*|mor(a|am|ando|adores?|adia)|cidades?|bairros?|estados?|enderecos?|localiza\w*|regiao|cep|municipios?)\b|\b(em|na|no|de|do|da) (" + _CIDADES + r")\b"), {"clientes"}),
-    "idade": ("idade ou data de nascimento", re.compile(r"\b(idades?|nascimento|nasceu|nasceram|nascidos?|anos de idade|maiores de idade|menores de idade)\b"), set()),
-    "genero": ("sexo ou gênero", re.compile(r"\b(sexo|generos?|homens|mulheres|masculin\w+|feminin\w+)\b"), set()),
-    "cargo": ("cargo, salário ou departamento", re.compile(r"\b(salarios?|cargos?|departamentos?|setores?|ramal|turnos?)\b"), set()),
-    "autoria": ("quem criou ou é responsável", re.compile(r"\b(quem (criou|cadastrou|fez|editou)|criad[oa]s? por|cadastrad[oa]s? por|feit[oa]s? por|vendedor\w*|atendentes?|responsaveis?)\b"), set()),
-    "acesso": ("último acesso ou login", re.compile(r"\b(ultimo (acesso|login)|ultima vez|logaram|logou|acessaram|online)\b"), set()),
-    "especificacao": ("marca, fornecedor, peso ou dimensões", re.compile(r"\b(marcas?|fornecedor\w*|fabricantes?|pesos?|altura|largura|comprimento|dimensoes|medidas|tamanhos?|voltagem|potencia)\b"), set()),
-    "imagem": ("foto ou imagem", re.compile(r"\b(fotos?|imagens?|logo)\b"), set()),
+        r"\b(resid\w*|mor(a|am|ando|adores?|adia)|cidades?|bairros?|estados?|enderecos?|localiza\w*|regiao|cep|municipios?)\b|\b(em|na|no|de|do|da) (" + _CIDADES + r")\b"), quem_guarda("localizacao")),
+    "idade": ("idade ou data de nascimento", re.compile(r"\b(idades?|nascimento|nasceu|nasceram|nascidos?|anos de idade|maiores de idade|menores de idade)\b"), quem_guarda("idade")),
+    "genero": ("sexo ou gênero", re.compile(r"\b(sexo|generos?|homens|mulheres|masculin\w+|feminin\w+)\b"), quem_guarda("genero")),
+    "cargo": ("cargo, salário ou departamento", re.compile(r"\b(salarios?|cargos?|departamentos?|setores?|ramal|turnos?)\b"), quem_guarda("cargo")),
+    "autoria": ("quem criou ou é responsável", re.compile(r"\b(quem (criou|cadastrou|fez|editou)|criad[oa]s? por|cadastrad[oa]s? por|feit[oa]s? por|vendedor\w*|atendentes?|responsaveis?)\b"), quem_guarda("autoria")),
+    "acesso": ("último acesso ou login", re.compile(r"\b(ultimo (acesso|login)|ultima vez|logaram|logou|acessaram|online)\b"), quem_guarda("acesso")),
+    "especificacao": ("marca, fornecedor, peso ou dimensões", re.compile(r"\b(marcas?|fornecedor\w*|fabricantes?|pesos?|altura|largura|comprimento|dimensoes|medidas|tamanhos?|voltagem|potencia)\b"), quem_guarda("especificacao")),
+    "imagem": ("foto ou imagem", re.compile(r"\b(fotos?|imagens?|logo)\b"), quem_guarda("imagem")),
 }
 
 _SO_DADOS = re.compile(r"^(quantos|quantas|quanto|quais|qual|quem|liste|listar|lista|mostre|mostrar|exiba|existe|existem|tem|temos|tenho|ha)\b|\b(eu tenho|temos|existem)\b")
@@ -71,7 +87,4 @@ def conferir_contra_esquema() -> list[str]:
     """Para os testes: toda entidade do esquema tem texto aqui, e todo campo 'localizacao' guardado está declarado."""
     erros = [f"entidade {e} do esquema sem texto em ENTIDADES" for e in ESQUEMA if e not in ENTIDADES]
     erros += [f"{e} em ENTIDADES não existe no esquema" for e in ENTIDADES if e not in ESQUEMA]
-    for e, c in (("clientes", "cidade"),):
-        if c not in ESQUEMA[e]["campos"]:
-            erros.append(f"{e}.{c} sumiu do esquema: ajuste ATRIBUTOS")
     return erros

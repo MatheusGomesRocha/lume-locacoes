@@ -157,8 +157,13 @@ _VAZIAS = {"o", "a", "os", "as", "um", "uma", "de", "do", "da", "dos", "das", "n
            "que", "e", "ou", "para", "pra", "por", "tipo", "tenho", "temos", "ha", "tem", "quantos", "quantas", "qual", "quais", "quanto", "ver", "mostre", "liste"}
 
 
+_PERIODO = re.compile(r"(?:ultim[oa]s?\s+)?\d{1,4}\s*(?:dias?|semanas?|mes(?:es)?)\b|\bultim[oa]s?\s+(?:dias|semanas?|mes(?:es)?)\b|\b(?:esta|essa|nesta|nessa)\s+semana\b|\bhoje\b")
+
+
 def _termos(t) -> set[str]:
-    return {p for p in palavras(t) if p not in _VAZIAS and len(p) > 1}
+    """Palavras que contam na comparação. "últimos 7 dias", "15 dias", "2 semanas" e "hoje" viram a mesma palavra (período): a
+    pergunta com outro número é a MESMA consulta, só muda o parâmetro."""
+    return {p for p in palavras(_PERIODO.sub(" periodo ", sem_acento(str(t)))) if p not in _VAZIAS and len(p) > 1}
 
 
 def _termos_da_entidade(nome: str) -> set[str]:
