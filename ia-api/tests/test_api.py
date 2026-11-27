@@ -443,3 +443,9 @@ def test_resposta_em_cache_muda_quando_o_faq_extra_muda():
     r1 = client.post("/chat", json={"pergunta": pergunta, "faq_extra": [a]}).json()
     r2 = client.post("/chat", json={"pergunta": pergunta, "faq_extra": [b]}).json()
     assert "Primeira" in r1["resposta"] and "Segunda" in r2["resposta"]
+
+
+def test_pergunta_por_forma_de_pagamento_sem_consulta_aprovada_nao_vira_total_geral():
+    for q in ("quantos orçamentos foram pagos no boleto?", "quantos foram pagos no cartão?"):
+        r = client.post("/chat", json={"pergunta": q}).json()
+        assert r["encontrou"] is False and "forma de pagamento" in r["resposta"] and not r.get("consultas")

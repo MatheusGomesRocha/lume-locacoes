@@ -291,6 +291,9 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
             sei = {"contar": "te dizer quantos são", "listar": "listar os registros", "somar": "somar os valores"}.get(parecida.get("operacao"), "responder de outro jeito")
             quer = "listar os nomes" if tipo_da_pergunta(pergunta) == "listar" else "somar esses valores"
             return _resposta_agente(f"Por enquanto eu só consigo {sei}, ainda não sei {quer}. Já anotei o seu pedido para a equipe liberar. Não consegui responder como você queria.", encontrou=False, gerada_por_llm=False)
+    if not ferramentas.pede_acao(pergunta) and tipo_da_pergunta(pergunta) and ferramentas.parece_pedido_de_acao_ou_dados(pergunta, historico) and ferramentas.cita_forma_de_pagamento(pergunta):
+        # nenhuma consulta fixa filtra por forma de pagamento: o modelo responderia o total geral e diria "no boleto". Sem consulta aprovada, avisa e anota para os Agents.
+        return _resposta_agente("Ainda não consigo separar por forma de pagamento (Pix, cartão, boleto…). Registrei a sua pergunta para a equipe liberar essa consulta.", encontrou=False, gerada_por_llm=False)
     if provedor_llm is None or not ferramentas.parece_pedido_de_acao_ou_dados(pergunta, historico):
         return None
     chave = chave_da_conversa("decisao", VERSAO_DO_CONTEUDO, pergunta, historico, dados.ultimo_id, dados.hoje or "")

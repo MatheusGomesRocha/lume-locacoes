@@ -287,3 +287,11 @@ def parece_seguimento(pergunta: str, historico: list[str] | None = None) -> bool
         return True
     anterior = _sem_acento(historico[-1]) if historico else ""
     return bool(_DADOS.search(anterior)) and not _COMO.search(anterior)  # só conversa de dados; "e para editar?" é de ajuda e segue o fluxo dela
+
+
+_FORMA_DE_PAGAMENTO = re.compile(r"\b(pix|cartao|boleto|dinheiro|especie|credito|debito|transferencia)\b")
+
+
+def cita_forma_de_pagamento(pergunta: str) -> bool:
+    """A pergunta separa por forma de pagamento (Pix, cartão, boleto…)? Nenhuma ferramenta fixa filtra por isso: só uma consulta aprovada."""
+    return bool(_FORMA_DE_PAGAMENTO.search(_sem_acento(pergunta)))

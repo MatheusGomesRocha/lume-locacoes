@@ -320,6 +320,26 @@
           "matriz": "valor que varia vira parâmetro"
         }
       }
+    },
+    {
+      "id": "E17-total-geral-dito-como-filtrado",
+      "titulo": "“Quantos orçamentos foram pagos no boleto?” respondeu “não encontrei” e, repetida, “foram 3 pagos no boleto”: nenhuma ferramenta fixa filtra por forma de pagamento e o modelo repetiu o filtro da pergunta sobre o total geral",
+      "visto_em": "chat de 27/11 (12:55)",
+      "status": "fechado",
+      "camadas": {
+        "codigo": {
+          "teste": "tests/test_api.py::test_pergunta_por_forma_de_pagamento_sem_consulta_aprovada_nao_vira_total_geral"
+        },
+        "checagem_fixa": {
+          "nao_se_aplica": "é do chat, não de uma proposta de consulta"
+        },
+        "licao": {
+          "nao_se_aplica": "os Agents não escrevem o chat; a pergunta cai na fila deles"
+        },
+        "matriz": {
+          "teste": "tests/test_api.py::test_pergunta_por_forma_de_pagamento_sem_consulta_aprovada_nao_vira_total_geral"
+        }
+      }
     }
   ]
 }
