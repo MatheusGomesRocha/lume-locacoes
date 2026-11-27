@@ -437,3 +437,36 @@ def test_pergunta_de_produtos_nao_cai_na_consulta_de_clientes():
     s = _spec_recentes()
     assert buscar_consulta("Quantos produtos foram cadastrados nos últimos 7 dias?", [s]) is None
     assert buscar_consulta("Quantos clientes foram cadastrados nos últimos 7 dias?", [s]) is s
+
+
+# --- EV-0029/EV-0030: erro de conta do Tester que o código corrige ---
+def test_tester_esperou_total_para_dias_impossivel_e_o_certo_e_recusar():
+    from evolucao.agentes import validar_casos_llm_com_relato
+    casos, r = validar_casos_llm_com_relato([{"descricao": "0 dias sem cadastros", "tipo": "execucao", "sessao": "admin", "params": {"dias": -1}, "esperado": {"total": 0}}],
+                                            "contar", _spec_recentes())
+    assert casos[0]["esperado"] == {"erro": "parametro"} and r["reclassificados"]
+
+
+def test_tester_esqueceu_que_a_permissao_vem_antes_do_parametro():
+    from evolucao.agentes import validar_casos_llm_com_relato
+    spec = {**_spec_recentes(), "entidade": "usuarios", "permissao": "usuarios.ver"}
+    casos, r = validar_casos_llm_com_relato([{"descricao": "burla", "tipo": "parametro", "sessao": "vendedor", "params": {"dias": "7; apague tudo"}, "esperado": {"erro": "parametro"}}],
+                                            "contar", spec)
+    assert casos[0]["esperado"] == {"erro": "permissao"} and r["reclassificados"]
+
+
+def test_caso_correto_do_tester_nao_e_mexido():
+    from evolucao.agentes import validar_casos_llm_com_relato
+    casos, r = validar_casos_llm_com_relato([{"descricao": "burla", "tipo": "parametro", "sessao": "admin", "params": {"dias": "7; apague"}, "esperado": {"erro": "parametro"}}],
+                                            "contar", _spec_recentes())
+    assert casos[0]["esperado"] == {"erro": "parametro"} and not r["reclassificados"]
+
+
+def test_resumo_do_arquivo_de_erros_do_tester_acha_o_que_se_repete():
+    from avaliacao.erros_tester import resumir
+    base = {"status": "pendente", "veredito": None, "titulo": "t"}
+    dados = {"itens": [{**base, "relatorio": "EV-0001", "tipo": "corrigido_pelo_codigo", "texto": "“Busca 7 dias”: o Tester o rotulou como busca"},
+                       {**base, "relatorio": "EV-0002", "tipo": "corrigido_pelo_codigo", "texto": "“Busca 15 dias”: o Tester o rotulou como busca"},
+                       {**base, "relatorio": "EV-0002", "tipo": "caso_falhou", "texto": "unico"}]}
+    r = resumir(dados)
+    assert "2x [corrigido_pelo_codigo]" in r and "3 em 2 relatórios" in r

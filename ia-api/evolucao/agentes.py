@@ -328,7 +328,16 @@ def casos_base(spec: dict) -> list[dict]:
 def _valor_impossivel(spec: dict | None, params: dict) -> bool:
     """O caso usa, num parâmetro de lista, um valor que não está na lista? Aí a única resposta certa da consulta é recusar."""
     defs = (spec or {}).get("parametros") or {}
-    return any(d.get("tipo") == "enum" and n in params and params[n] not in d.get("valores", []) for n, d in defs.items())
+    janelas = {f.get("parametro") for f in (spec or {}).get("filtros", []) if f.get("op") == "ultimos_dias"}
+    # a quantidade de dias da janela tem que ser inteiro de 0 a 3650: -1, 1.5, "sete" ou 9999 a consulta recusa de propósito
+    fora = lambda v: isinstance(v, bool) or not isinstance(v, int) or not 0 <= v <= 3650  # noqa: E731
+    return any((d.get("tipo") == "enum" and n in params and params[n] not in d.get("valores", [])) or (n in janelas and n in params and fora(params[n])) for n, d in defs.items())
+
+
+def _sem_acesso(spec: dict, sessao: str) -> bool:
+    """A sessão do caso não passa na permissão da consulta (nem como administrador numa entidade restrita)?"""
+    sess, ent = SESSOES_TESTE.get(sessao) or {}, ESQUEMA.get(spec.get("entidade")) or {}
+    return spec.get("permissao") not in sess.get("permissoes", []) or bool(ent.get("so_admin") and sess.get("papel") not in ("master", "admin"))
 
 
 def casos_da_proposta(proposta: dict, spec: dict | None = None) -> list[dict]:
@@ -418,6 +427,15 @@ def validar_casos_llm_com_relato(brutos, operacao: str | None = None, spec: dict
             relato["descartados"].append(f"“{nome}”: sem resultado esperado utilizável")
             continue
         tipo = _tipo_real(b["tipo"], esperado)
+        params_do_caso = b.get("params", {})
+        if spec and tipo in FAMILIA_EXECUCAO:
+            # A consulta confere a PERMISSÃO antes dos parâmetros, e recusa valor impossível em vez de contar: o certo, nesses casos, é o erro.
+            if _sem_acesso(spec, b.get("sessao", "master")) and esperado.get("erro") != "permissao":
+                relato["reclassificados"].append(f"“{nome}”: a sessão {b.get('sessao', 'master')} não tem acesso, então o certo é recusar por permissão (antes de olhar os parâmetros)")
+                esperado = {"erro": "permissao"}
+            elif _valor_impossivel(spec, params_do_caso) and esperado.get("erro") != "parametro":
+                relato["reclassificados"].append(f"“{nome}”: o valor do parâmetro é impossível, então o certo é recusar (erro de parâmetro), não contar")
+                esperado = {"erro": "parametro"}
         pergunta = _s(b.get("pergunta"), 200) if b.get("pergunta") else None
         if tipo in ("busca", "busca_extrai") and not pergunta:
             relato["descartados"].append(f"“{nome}”: teste de busca sem a pergunta a buscar")
