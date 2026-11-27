@@ -63,6 +63,18 @@ class EvolucaoController extends Controller
             $grupos[$chave] ??= ['pergunta' => mb_substr($l->pergunta, 0, 300), 'tipo' => 'dados', 'vezes' => 0];
             $grupos[$chave]['vezes']++;
         }
+        // "Essa resposta está errada": a Lumi respondeu e a pessoa marcou. Entra com o que foi respondido, para o Analista achar o que faltou considerar.
+        $erradas = ChatLog::query()->where('feedback', 'negativo')->whereIn('tipo', ['consulta', 'ajuda'])
+            ->where(fn ($q) => $q->whereNull('desfecho')->orWhere('desfecho', '!=', 'ignorado'))->get(['pergunta', 'resposta']);
+        foreach ($erradas as $l) {
+            $chave = self::normalizar($l->pergunta);
+            if (strlen($chave) < 4 || isset($tratadas[$chave]) || trim((string) $l->resposta) === '') {
+                continue;
+            }
+            $grupos[$chave] ??= ['pergunta' => mb_substr($l->pergunta, 0, 300), 'tipo' => 'dados', 'vezes' => 0];
+            $grupos[$chave]['vezes']++;
+            $grupos[$chave]['resposta_dada'] ??= mb_substr((string) $l->resposta, 0, 600);
+        }
         usort($grupos, fn ($a, $b) => $b['vezes'] <=> $a['vezes']);
 
         return array_slice($grupos, 0, self::MAX_PERGUNTAS);

@@ -71,6 +71,41 @@ REGRAS_DE_MODULO = {
     "produtos": [],
 }
 
+# Qual data a pergunta quer, pelo verbo: "criados hoje" é criado_em, "retirados hoje" é data_retirada, "pagos hoje" é pago_em.
+# Chave = raiz da palavra (sem acento, singular/masculino); a consulta de período precisa filtrar por um dos campos citados.
+VERBOS_DE_DATA: dict[str, dict[str, str]] = {
+    "orcamentos": {"criado": "criado_em", "feito": "criado_em", "retirado": "data_retirada", "retirada": "data_retirada", "retiram": "data_retirada",
+                   "devolvido": "data_devolucao", "devolucao": "data_devolucao", "devolvem": "data_devolucao", "volta": "data_devolucao", "voltam": "data_devolucao"},
+    "pagamentos": {"pago": "pago_em", "pagou": "pago_em", "pagaram": "pago_em", "vencido": "vencimento", "vence": "vencimento", "vencem": "vencimento", "vencimento": "vencimento", "vencendo": "vencimento",
+                   "criado": "criado_em"},
+    "clientes": {"cadastrado": "criado_em", "criado": "criado_em"},
+    "produtos": {"cadastrado": "criado_em", "criado": "criado_em"},
+    "usuarios": {"cadastrado": "criado_em", "criado": "criado_em"},
+    "grupos": {"criado": "criado_em"},
+}
+
+# Campo lógico (bool) -> (palavra do "sim", palavra do "não"): "produtos ativos" / "produtos inativos".
+BOOL_PALAVRAS: dict[str, tuple[str, str]] = {"ativo": ("ativo", "inativo")}
+
+# Como as pessoas falam de cada módulo. A matriz de testes gerada usa isto para montar perguntas; "valores" e "datas" dizem como se fala cada
+# valor de campo e cada data ("pagas", "no cartão", "com retirada"). Módulo novo no esquema: declare aqui e a matriz ganha as perguntas dele.
+VOCABULARIO: dict[str, dict] = {
+    "clientes": {"assunto": ["clientes"], "genero": "m", "valores": {("tipo", "PF"): "do tipo PF", ("tipo", "PJ"): "do tipo PJ"}, "datas": {"criado_em": "cadastrados"}},
+    "produtos": {"assunto": ["produtos"], "genero": "m", "valores": {("ativo", True): "ativos", ("ativo", False): "inativos"}, "datas": {"criado_em": "cadastrados"}},
+    "orcamentos": {"assunto": ["orçamentos"], "genero": "m",
+                   "valores": {("status", "rascunho"): "em rascunho", ("status", "enviado"): "enviados", ("status", "aprovado"): "aprovados",
+                               ("status", "finalizado"): "finalizados", ("status", "cancelado"): "cancelados"},
+                   "datas": {"criado_em": "criados", "data_retirada": "com retirada", "data_devolucao": "com devolução"}},
+    "pagamentos": {"assunto": ["cobranças", "pagamentos"], "genero": "f", "outros_assuntos": {"orçamentos": "m"},
+                   "valores": {("status", "pendente"): "pendentes", ("status", "cancelado"): "canceladas", ("forma", "pix"): "no Pix", ("forma", "cartao"): "no cartão",
+                               ("forma", "boleto"): "no boleto", ("forma", "dinheiro"): "em dinheiro"},
+                   "datas": {"pago_em": "PAGO", "vencimento": "com vencimento", "criado_em": "criadas"},
+                   "pago": {"m": "pagos", "f": "pagas"}},  # "pagas hoje" = situação paga E data de pagamento (PAGO = usa o dicionário "pago")
+    "usuarios": {"assunto": ["usuários"], "genero": "m", "valores": {("ativo", True): "ativos", ("ativo", False): "inativos", ("papel", "admin"): "admin"},
+                 "datas": {"criado_em": "cadastrados"}},
+    "grupos": {"assunto": ["grupos de permissão"], "genero": "m", "valores": {}, "datas": {"criado_em": "criados"}},
+}
+
 # Dados pequenos e fixos para os testes (as armadilhas são de propósito: nomes parecidos, inativos, datas).
 # "Hoje" dos testes: as datas de DADOS_TESTE e os casos com "últimos N dias" são calculados a partir dele.
 HOJE_TESTE = "2026-11-26"

@@ -360,6 +360,46 @@
           "matriz": "cobertura dos exemplos"
         }
       }
+    },
+    {
+      "id": "E19-verbo-da-data-ignorado",
+      "titulo": "Achado pelo teste de mutação: consulta de “criados hoje” filtrando pela data de retirada passava em todas as checagens (o verbo da pergunta não mandava na data usada)",
+      "visto_em": "teste de mutação de 27/11",
+      "status": "fechado",
+      "camadas": {
+        "codigo": {
+          "teste": "tests/test_mutacao.py::test_verbo_da_pergunta_manda_na_data_do_periodo"
+        },
+        "checagem_fixa": {
+          "checagem": "C19"
+        },
+        "licao": {
+          "licao": "L03-orc-datas"
+        },
+        "matriz": {
+          "teste": "tests/test_mutacao.py::test_nenhuma_quebra_passa_sem_ser_percebida"
+        }
+      }
+    },
+    {
+      "id": "E20-furos-achados-pela-matriz-do-esquema",
+      "titulo": "Achados pela matriz gerada: “total de X” lido como lista, “ontem/este mês” fora do período na busca, data escolhida sozinha sem verbo, valor de outro módulo (“orçamentos no Pix”) ignorado, empate inofensivo entre consultas do mesmo módulo, bool (“ativos”) ignorado",
+      "visto_em": "matriz do esquema de 27/11",
+      "status": "fechado",
+      "camadas": {
+        "codigo": {
+          "teste": "tests/test_matriz_esquema.py::test_nenhuma_pergunta_gerada_falha"
+        },
+        "checagem_fixa": {
+          "checagem": "C19"
+        },
+        "licao": {
+          "licao": "L10-valor-que-varia-e-parametro"
+        },
+        "matriz": {
+          "teste": "tests/test_matriz_esquema.py::test_consulta_que_nao_filtra_algo_do_pedido_nunca_responde_o_total_geral"
+        }
+      }
     }
   ]
 }

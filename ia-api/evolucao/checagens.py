@@ -149,6 +149,7 @@ def checar_spec(spec: dict, proposta: dict | None = None, catalogo: list[dict] |
 
     f += _parametro_dinamico(spec)
     f += _cobertura_dos_exemplos(spec, proposta)
+    f += _nomes_do_periodo(spec)
 
     if any(SUSPEITO.search(t) for t in _textos({k: v for k, v in spec.items() if k != "nome"})):
         f.append(_a("C10", "bloqueio", "a consulta tem texto com cara de SQL, script ou instrução"))
@@ -213,6 +214,20 @@ def _periodo_de_calendario(spec: dict) -> list[dict]:
         executar(spec, _com_obrigatorios(spec, {de: "2026-11-20", ate: "2026-11-26"}), DADOS_TESTE, sessao)
     except ErroConsulta:
         return [_a("C14", "bloqueio", f"consulta de período recusou um período normal ({de} antes de {ate})")]
+    return []
+
+
+_INICIO = re.compile(r"^(de|desde|inicio|inicial|data_de|\w+_de)$")
+_FIM = re.compile(r"^(ate|fim|final|data_ate|\w+_ate)$")
+
+
+def _nomes_do_periodo(spec: dict) -> list[dict]:
+    """C20 (aviso) — o parâmetro que se chama de início tem que ser o do filtro "maior ou igual", e o de fim o do "menor ou igual".
+    A extração segue o operador (a resposta sai certa), mas o nome trocado engana quem lê a proposta e o Tester."""
+    for fl in spec.get("filtros") or []:
+        nome = str(fl.get("parametro", ""))
+        if (fl.get("op") == "menor_igual" and _INICIO.match(nome)) or (fl.get("op") == "maior_igual" and _FIM.match(nome)):
+            return [_a("C20", "aviso", f"o parâmetro “{nome}” parece o {'início' if _INICIO.match(nome) else 'fim'} do período, mas o filtro usa “{fl['op']}”: confira se não está trocado")]
     return []
 
 

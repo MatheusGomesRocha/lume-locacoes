@@ -9,13 +9,14 @@ Aqui o código (nunca o modelo) compara o que foi pedido com o que a consulta sa
 import re
 from datetime import date
 
-from evolucao.consulta import JANELAS, palavras, raiz, periodo_da_pergunta, sem_acento
-from evolucao.esquema import ESQUEMA
+from evolucao.consulta import JANELAS, campos_de_data_pedidos, campos_de_periodo, palavras, periodo_da_pergunta, raiz, sem_acento
+from evolucao.esquema import BOOL_PALAVRAS, ESQUEMA
 
 # Valor que implica outro campo: "o que foi pago hoje" já filtra pela data de pagamento, não precisa de parâmetro de situação.
 _IMPLICA = {("pagamentos", "status", "pago"): "pago_em"}
 _SINONIMOS = {"cartao": ["credito", "debito"], "dinheiro": ["especie"]}
 _BONITO = {"cartao": "cartão"}
+_NAO_VALE_DE_FORA = {"master", "admin", "usuario"}  # palavras comuns demais para dizer que a pergunta é de outro módulo
 
 
 def _hoje(hoje) -> str:
@@ -29,11 +30,19 @@ def restricoes_da_pergunta(pergunta: str, entidade: str, hoje=None) -> list[dict
     """[{tipo: periodo}, {tipo: enum, campo, valor}] — o que a pergunta restringe nesta entidade."""
     saida: list[dict] = []
     if periodo_da_pergunta(pergunta, _hoje(hoje)):
-        saida.append({"tipo": "periodo", "rotulo": "período"})
+        pedidos = campos_de_data_pedidos(pergunta, entidade)
+        rotulos = [str(((ESQUEMA.get(entidade) or {}).get("campos", {}).get(c) or {}).get("rotulo", c)).lower() for c in pedidos]
+        saida.append({"tipo": "periodo", "campos": pedidos, "rotulo": f"período ({' ou '.join(rotulos)})" if rotulos else "período"})
     esquema = ESQUEMA.get(entidade) or {}
     q = {raiz(p) for p in palavras(pergunta)}
     do_assunto = {raiz(p) for p in palavras(esquema.get("rotulo", entidade))} | {raiz(entidade)}
     for campo, d in (esquema.get("campos") or {}).items():
+        if d["tipo"] == "bool" and campo in BOOL_PALAVRAS:
+            sim, nao = BOOL_PALAVRAS[campo]
+            valor = False if raiz(nao) in q else True if raiz(sim) in q else None
+            if valor is not None:
+                saida.append({"tipo": "bool", "campo": campo, "valor": valor, "rotulo": f"{str(d.get('rotulo', campo)).lower()} ({'sim' if valor else 'não'})"})
+            continue
         if d["tipo"] != "enum":
             continue
         for v in d.get("valores") or []:
@@ -44,6 +53,20 @@ def restricoes_da_pergunta(pergunta: str, entidade: str, hoje=None) -> list[dict
                 rotulo = str(d.get("rotulo", campo)).lower()
                 saida.append({"tipo": "enum", "campo": campo, "valor": v, "rotulo": f"{rotulo} ({_BONITO.get(v, v)})"})
                 break
+    # Valor que é de OUTRO módulo ("no Pix" numa consulta de orçamentos): a consulta não tem como filtrar, então não responde com o total geral.
+    proprios = {sem_acento(str(v)) for d in (esquema.get("campos") or {}).values() if d["tipo"] == "enum" for v in d.get("valores") or []}
+    for outro, esq in ESQUEMA.items():
+        if outro == entidade:
+            continue
+        for campo, d in (esq.get("campos") or {}).items():
+            if d["tipo"] != "enum":
+                continue
+            for v in d.get("valores") or []:
+                c = sem_acento(str(v))
+                if len(c) < 3 or c in _NAO_VALE_DE_FORA or c in proprios or raiz(c) in do_assunto:
+                    continue
+                if raiz(c) in q and not any(x.get("valor") == v for x in saida):
+                    saida.append({"tipo": "fora", "campo": campo, "valor": v, "rotulo": f"{str(d.get('rotulo', campo)).lower()} ({_BONITO.get(v, v)})"})
     return saida
 
 
@@ -51,11 +74,13 @@ def _cobre(r: dict, spec: dict) -> bool:
     params = spec.get("parametros") or {}
     filtros = spec.get("filtros") or []
     if r["tipo"] == "periodo":
+        campos, pedidos = campos_de_periodo(spec), set(r.get("campos") or [])
+        return bool(campos) and (bool(campos & pedidos) if pedidos else len(campos) == 1)
+    if r["tipo"] == "fora":
+        return False
+    if r["tipo"] == "bool":
         for f in filtros:
-            p = params.get(f.get("parametro"), {})
-            if p.get("tipo") == "data" and f.get("op") in ("maior_igual", "menor_igual", "igual"):
-                return True
-            if f.get("op") in JANELAS:  # janela por parâmetro (dias) ou fixa (valor)
+            if f.get("campo") == r["campo"] and f.get("op") == "igual" and (params.get(f.get("parametro"), {}).get("tipo") == "bool" or f.get("valor") is r["valor"]):
                 return True
         return False
     implica = _IMPLICA.get((spec.get("entidade"), r["campo"], r["valor"]))
@@ -73,8 +98,18 @@ def _cobre(r: dict, spec: dict) -> bool:
 
 
 def nao_cobertas(pergunta: str, spec: dict, hoje=None) -> list[dict]:
-    """O que a pergunta restringe e a consulta não filtra. Vazio = a consulta responde a pergunta inteira."""
-    return [r for r in restricoes_da_pergunta(pergunta, spec.get("entidade", ""), hoje) if not _cobre(r, spec)]
+    """O que a pergunta restringe e a consulta não filtra. Vazio = a consulta responde a pergunta inteira.
+    Período sem verbo ("orçamentos de hoje") numa consulta com várias datas vem marcado `ambiguo`: aí a Lumi pergunta qual data, não é lacuna."""
+    saida = []
+    for r in restricoes_da_pergunta(pergunta, spec.get("entidade", ""), hoje):
+        if _cobre(r, spec):
+            continue
+        campos = campos_de_periodo(spec)
+        if r["tipo"] == "periodo" and not r.get("campos") and len(campos) > 1:
+            nomes = [str(((ESQUEMA.get(spec.get("entidade")) or {}).get("campos", {}).get(c) or {}).get("rotulo", c)).lower() for c in sorted(campos)]
+            r = {**r, "ambiguo": True, "rotulo": "período (qual data: " + ", ".join(nomes) + ")"}
+        saida.append(r)
+    return saida
 
 
 def texto_da_lacuna(spec: dict, faltam: list[dict]) -> str:
@@ -148,3 +183,33 @@ def texto_cita_filtros(texto: str, spec: dict, params: dict) -> bool:
         elif valor.replace("nao ", "") not in t and raiz(valor.replace("nao ", "")) not in t:
             return False
     return True
+
+
+def data_ambigua(pergunta: str, spec: dict, specs: list[dict], hoje=None) -> list[str]:
+    """Período sem verbo e o catálogo tem consultas do mesmo assunto para datas diferentes (criação, retirada, devolução)? Devolve os nomes das datas
+    possíveis: a Lumi pergunta qual, em vez de escolher uma por conta própria. Vazio = não há dúvida."""
+    r = next((x for x in restricoes_da_pergunta(pergunta, spec.get("entidade", ""), hoje) if x["tipo"] == "periodo"), None)
+    if not r or r.get("campos"):
+        return []
+    campos = set()
+    for s in specs:
+        if s.get("entidade") == spec.get("entidade") and s.get("operacao") == spec.get("operacao") and not nao_cobertas(pergunta, s, hoje):
+            campos |= campos_de_periodo(s)
+    if len(campos) < 2:
+        return []
+    return [str(((ESQUEMA.get(spec.get("entidade")) or {}).get("campos", {}).get(c) or {}).get("rotulo", c)).lower() for c in sorted(campos)]
+
+
+def desempatar(pergunta: str, candidatas: list[dict], hoje=None) -> dict | None:
+    """Duas consultas do mesmo módulo e tipo respondem a pergunta por igual (uma só tem uma data a mais, opcional)? Sem período na pergunta,
+    vale a mais simples (menos parâmetros). Com período, ou se o empate persistir, não escolhe: None."""
+    from evolucao.consulta import pontuar, tipo_da_pergunta
+    tipo = tipo_da_pergunta(pergunta)
+    boas = [s for s in candidatas if (not tipo or s.get("operacao") == tipo) and pontuar(pergunta, s) >= 0.5]
+    if len(boas) < 2 or len({(s.get("entidade"), s.get("operacao")) for s in boas}) != 1:
+        return None
+    if any(r["tipo"] == "periodo" for r in restricoes_da_pergunta(pergunta, boas[0].get("entidade", ""), hoje)):
+        return None
+    menor = min(len(s.get("parametros") or {}) for s in boas)
+    simples = [s for s in boas if len(s.get("parametros") or {}) == menor]
+    return simples[0] if len(simples) == 1 else None

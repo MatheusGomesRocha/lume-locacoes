@@ -200,13 +200,21 @@ TEXTO_DA_ACAO = {
 }
 
 
+_SPECS_JA_CONFERIDAS: dict[str, dict | None] = {}  # consulta (como veio) -> spec normalizada, ou None se barrada; o catálogo vem a cada pergunta e as checagens não são baratas
+
+
 def specs_validas(brutas: list[dict]) -> list[dict]:
     """Só entram as specs que passam de novo pelas checagens fixas: o catálogo vem de fora, então não se confia nele."""
     saida = []
     for b in brutas:
-        spec, _ = normalizar_spec(b)
-        if not checagens.tem_bloqueio(checagens.checar_spec(spec, None, [])):
-            saida.append(spec)
+        chave = json.dumps(b, sort_keys=True, ensure_ascii=False, default=str)
+        if chave not in _SPECS_JA_CONFERIDAS:
+            spec, _ = normalizar_spec(b)
+            _SPECS_JA_CONFERIDAS[chave] = None if checagens.tem_bloqueio(checagens.checar_spec(spec, None, [])) else spec
+            if len(_SPECS_JA_CONFERIDAS) > 500:  # não cresce sem limite
+                _SPECS_JA_CONFERIDAS.pop(next(iter(_SPECS_JA_CONFERIDAS)))
+        if _SPECS_JA_CONFERIDAS[chave] is not None:
+            saida.append(_SPECS_JA_CONFERIDAS[chave])
     return saida
 
 
@@ -276,9 +284,16 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
         specs = specs_validas(dados.catalogo)
         # A consulta tem que filtrar TUDO o que a pergunta restringe (período, forma, situação). Se só uma consulta parecida existe e ela não
         # filtra algum pedaço, não se entrega o total geral: diz o que falta e a pergunta vira oportunidade de proposta dos Agents.
-        spec = buscar_consulta(pergunta, [s for s in specs if not cobertura.nao_cobertas(pergunta, s, dados.hoje)])
-        if not spec and (incompleta := buscar_consulta(pergunta, specs, sem_periodo=True)):
-            return _resposta_agente(cobertura.texto_da_lacuna(incompleta, cobertura.nao_cobertas(pergunta, incompleta, dados.hoje)), encontrou=False, gerada_por_llm=False)
+        completos = [s for s in specs if not cobertura.nao_cobertas(pergunta, s, dados.hoje)]
+        spec = buscar_consulta(pergunta, completos) or cobertura.desempatar(pergunta, completos, dados.hoje)
+        incompleta = None if spec else buscar_consulta(pergunta, specs, sem_periodo=True)
+        faltam = cobertura.nao_cobertas(pergunta, incompleta, dados.hoje) if incompleta else []
+        if faltam:
+            if all(r.get("ambiguo") for r in faltam):  # não é lacuna: a pergunta não disse qual data, a Lumi pergunta
+                return _resposta_agente(f"Qual data você quer: {faltam[0]['rotulo'].split(': ', 1)[1].rstrip(')')}? Diga na pergunta, por exemplo “criados hoje”.", encontrou=True, gerada_por_llm=False)
+            return _resposta_agente(cobertura.texto_da_lacuna(incompleta, faltam), encontrou=False, gerada_por_llm=False)
+        if spec and (datas := cobertura.data_ambigua(pergunta, spec, specs, dados.hoje)):  # várias datas possíveis e a pergunta não diz qual
+            return _resposta_agente(f"Qual data você quer: {', '.join(datas[:-1])} ou {datas[-1]}? Diga na pergunta, por exemplo “criados hoje”.", encontrou=True, gerada_por_llm=False)
         if spec:
             params = extrair_parametros(pergunta, spec, dados.hoje)
             # Parâmetro de texto (ex.: categoria) o servidor não consegue ler da pergunta: ele não tem os dados. Vai a pergunta junto
@@ -335,6 +350,8 @@ class PerguntaSemResposta(BaseModel):
     pergunta: str = Field(min_length=4, max_length=300)
     tipo: str = Field(default="dados", max_length=20)
     vezes: int = Field(default=1, ge=1, le=10_000)
+    # O que a assistente respondeu quando a pessoa marcou "essa resposta está errada": o Analista descobre o que a resposta deixou de considerar.
+    resposta_dada: str | None = Field(default=None, max_length=600)
 
 
 class EvolucaoIn(BaseModel):
@@ -351,7 +368,7 @@ def evolucao_propor(dados: EvolucaoIn):
     ignoradas = [{"pergunta": p.pergunta, "motivo": f"o sistema não guarda {i['atributo']}: nenhuma consulta responde"} for p in dados.perguntas if (i := pergunta_impossivel(p.pergunta))]
     specs = specs_validas(dados.catalogo)
     for p in dados.perguntas:  # a consulta aprovada já responde (só muda o valor, ex.: 7 -> 15 dias): não é trabalho novo para os Agents
-        if not pergunta_impossivel(p.pergunta) and (ja := buscar_consulta(p.pergunta, specs)):
+        if not p.resposta_dada and not pergunta_impossivel(p.pergunta) and (ja := buscar_consulta(p.pergunta, specs)):  # resposta marcada como errada não é "já respondida"
             ignoradas.append({"pergunta": p.pergunta, "motivo": f"já respondida pela consulta aprovada “{ja['nome']}” (só muda o valor do parâmetro)"})
     descartar = {i["pergunta"] for i in ignoradas}
     validas = [p.model_dump() for p in dados.perguntas if p.pergunta not in descartar]

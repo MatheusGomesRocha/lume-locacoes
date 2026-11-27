@@ -449,3 +449,21 @@ def test_pergunta_por_forma_de_pagamento_sem_consulta_aprovada_nao_vira_total_ge
     for q in ("quantos orçamentos foram pagos no boleto?", "quantos foram pagos no cartão?"):
         r = client.post("/chat", json={"pergunta": q}).json()
         assert r["encontrou"] is False and "forma de pagamento" in r["resposta"] and not r.get("consultas")
+
+
+def test_resposta_marcada_como_errada_nao_e_barrada_por_ja_existir_consulta():
+    """Se a pessoa disse que a resposta estava errada, o Analista precisa ver a pergunta mesmo que a busca ache uma consulta parecida."""
+    from evolucao import agentes
+    captado = {}
+
+    def falso(provedor, limitador, sistema, usuario, *a, **k):
+        captado["usuario"] = usuario
+        return {"propostas": []}
+
+    original = agentes.chamar_json
+    agentes.chamar_json = falso
+    try:
+        agentes.Analista(object(), None).propor([{"pergunta": "quantos orçamentos foram pagos no cartão essa semana?", "vezes": 1, "resposta_dada": "Foram 5 pagamentos no cartão."}])
+    finally:
+        agentes.chamar_json = original
+    assert "resposta_dada" in captado["usuario"] and "5 pagamentos" in captado["usuario"]

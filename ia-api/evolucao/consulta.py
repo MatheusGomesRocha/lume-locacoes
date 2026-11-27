@@ -11,7 +11,7 @@ import re
 import unicodedata
 from datetime import date, timedelta
 
-from evolucao.esquema import DATA_ISO, ESQUEMA
+from evolucao.esquema import BOOL_PALAVRAS, DATA_ISO, ESQUEMA, VERBOS_DE_DATA
 
 OPERACOES = ("contar", "listar", "somar")
 OPS_POR_TIPO = {
@@ -184,20 +184,21 @@ _VAZIAS = {"o", "a", "os", "as", "um", "uma", "de", "do", "da", "dos", "das", "n
            "que", "e", "ou", "para", "pra", "por", "tipo", "tenho", "temos", "ha", "tem", "quantos", "quantas", "qual", "quais", "quanto", "ver", "mostre", "liste", "listar", "lista", "nomes", "nome", "consegue", "conseguir", "voce", "foram", "foi", "sao", "estao", "pode", "poderia", "gostaria", "saber", "quero", "queria", "favor", "existem", "existe"}
 
 
-_PERIODO = re.compile(r"(?:(?:ultim|proxim)[oa]s?\s+)?\d{1,4}\s*(?:dias?|semanas?|mes(?:es)?)\b|\b(?:ultim|proxim)[oa]s?\s+(?:dias|semanas?|mes(?:es)?)\b|\b(?:esta|essa|nesta|nessa)\s+semana\b|\bhoje\b")
+_PERIODO = re.compile(r"(?:(?:ultim|proxim)[oa]s?\s+)?\d{1,4}\s*(?:dias?|semanas?|mes(?:es)?)\b|\b(?:ultim|proxim)[oa]s?\s+(?:dias|semanas?|mes(?:es)?)\b|\b(?:esta|essa|nesta|nessa)\s+semana\b|\bhoje\b"
+                      r"|\b(?:anteontem|ontem)\b|\b(?:este|esse|neste|nesse)\s+mes\b|\bmes\s+passado\b|\bsemana\s+passada\b|\bdia\s+\d{1,2}/\d{1,2}(?:/\d{2,4})?")
 
 
 def _termos(t) -> set[str]:
     """Palavras que contam na comparação. "últimos 7 dias", "15 dias", "2 semanas" e "hoje" viram a mesma palavra (período): a
     pergunta com outro número é a MESMA consulta, só muda o parâmetro."""
-    return {p for p in palavras(_PERIODO.sub(" periodo ", sem_acento(str(t)))) if p not in _VAZIAS and len(p) > 1}
+    return {raiz(p) for p in palavras(_PERIODO.sub(" periodo ", sem_acento(str(t)))) if p not in _VAZIAS and len(p) > 1}
 
 
 def _termos_da_entidade(nome: str) -> set[str]:
     """"clientes" -> {clientes, cliente}; "orcamentos" -> {orcamentos, orcamento}: a pergunta pode vir no singular."""
     r = sem_acento((ESQUEMA.get(nome) or {}).get("rotulo", nome)).lower()
     r = r.split()[0] if r else r  # "usuarios do sistema" -> "usuarios": a pergunta cita só a primeira palavra
-    return {r, r.rstrip("s")} if r else set()
+    return {raiz(r), r.rstrip("s")} if r else set()
 
 
 def _fala_de_outra_entidade(q: set[str], entidade: str, declaradas: set[str] | None = None) -> bool:
@@ -228,6 +229,16 @@ def _termos_da(t, spec: dict) -> set[str]:
     return {_SLOT if p in slot else p for p in _termos(t)}
 
 
+def _nota_exemplos(q: set, spec: dict, tira: set) -> float:
+    """O quanto a pergunta (já em termos) se parece com o MELHOR exemplo da consulta (0 a 1)."""
+    melhor = 0.0
+    for ex in spec.get("exemplos", []):
+        e = _termos_da(ex, spec) - tira
+        if e and q:
+            melhor = max(melhor, len(q & e) / len(q | e))
+    return melhor
+
+
 def pontuar(pergunta: str, spec: dict, sem_periodo: bool = False) -> float:
     """0 a 1: o quanto a pergunta se parece com os exemplos e palavras-chave desta consulta."""
     tira = {"periodo"} if sem_periodo else set()  # sem_periodo: achar a consulta do mesmo ASSUNTO, mesmo que a pergunta cite um período que ela não filtra
@@ -236,19 +247,15 @@ def pontuar(pergunta: str, spec: dict, sem_periodo: bool = False) -> float:
     if not q or _fala_de_outra_entidade(q, spec.get("entidade", ""), declaradas):
         return 0.0
     valores = {p for lista in (spec.get("sinonimos") or {}).values() for s in lista for p in _termos(s)}
-    melhor = 0.0
-    for ex in spec.get("exemplos", []):
-        e = _termos_da(ex, spec) - tira
-        if e:
-            melhor = max(melhor, len(q & e) / len(q | e))
+    melhor = _nota_exemplos(q, spec, tira)
     chaves = {_SLOT if p in valores_de_parametro(spec) else p for k in spec.get("palavras_chave", []) for p in _termos(k)} | _termos(spec.get("entidade", "")) | _termos_da_entidade(spec.get("entidade", ""))
     if chaves:
-        melhor = max(melhor, 0.9 * len(q & (chaves | valores)) / len(q) * (1 if q & chaves else 0))
+        melhor = max(melhor, 0.9 * len(q & (chaves | valores | {_SLOT})) / len(q) * (1 if q & chaves else 0))
     return round(melhor, 3)
 
 
 # "qual o número DE orçamentos" conta; "qual o número DO orçamento que será devolvido" pergunta o identificador de cada orçamento (lista).
-_QUER_CONTAR = re.compile(r"^(e\s+)?(quantos|quantas|qual\s+(e\s+)?(o\s+|a\s+)?quantidade|qual\s+(e\s+)?(o\s+|a\s+)?numero\s+(de|dos|das|total)|numero\s+de|quantidade\s+de)\b|\bquantos\b|\bquantas\b")
+_QUER_CONTAR = re.compile(r"^(e\s+)?(total\s+(de|dos|das)|quantos|quantas|qual\s+(e\s+)?(o\s+|a\s+)?quantidade|qual\s+(e\s+)?(o\s+|a\s+)?numero\s+(de|dos|das|total)|numero\s+de|quantidade\s+de)\b|\bquantos\b|\bquantas\b")
 _QUER_SOMAR = re.compile(r"\b(soma|somar|somatorio|valor\s+total|quanto\s+(foi|ja|vai|ha|temos|tenho|recebi|faturei)|faturamento)\b")
 _QUER_LISTAR = re.compile(r"\b(qual\s+(e\s+)?(o\s+|a\s+)?numero\s+(do|da)|nomes?|liste|listar|lista|listagem|quais|quem|mostre|mostrar|exiba|me\s+(d[aeê]|mostra)|detalh\w+)\b")
 
@@ -275,8 +282,11 @@ def buscar_consulta(pergunta: str, specs: list[dict], minimo: float = 0.5, marge
     notas = sorted(((pontuar(pergunta, s, sem_periodo), s) for s in specs), key=lambda x: -x[0])
     if not notas or notas[0][0] < minimo:
         return None
-    if len(notas) > 1 and notas[0][0] - notas[1][0] < margem:
-        return None
+    empatadas = [sp for n, sp in notas if notas[0][0] - n < margem]
+    if len(empatadas) > 1:  # palavra-chave dá a mesma nota a duas consultas: só desempata quem tem o exemplo MUITO mais parecido com a pergunta
+        tira = {"periodo"} if sem_periodo else set()
+        por_exemplo = sorted(((_nota_exemplos(_termos_da(pergunta, sp) - tira, sp, tira), i, sp) for i, sp in enumerate(empatadas)), key=lambda x: -x[0])
+        return por_exemplo[0][2] if por_exemplo[0][0] - por_exemplo[1][0] >= 0.2 else None
     return notas[0][1]
 
 
@@ -333,15 +343,37 @@ def periodo_da_pergunta(pergunta: str, hoje) -> tuple[str, str] | None:
     return (iso(h - timedelta(days=n)), iso(h)) if n is not None else None
 
 
+def campos_de_data_pedidos(pergunta: str, entidade: str) -> list[str]:
+    """Que data a pergunta quer, pelo verbo ("criados hoje" -> criado_em)? Vazio = não disse (a Lumi pergunta qual)."""
+    verbos = VERBOS_DE_DATA.get(entidade) or {}
+    achados: list[str] = []
+    for p in palavras(pergunta):
+        for v, campo in verbos.items():
+            if (raiz(p) == raiz(v) or p == v) and campo not in achados:
+                achados.append(campo)
+    return achados
+
+
+def campos_de_periodo(spec: dict) -> set[str]:
+    """Campos de data que a consulta sabe filtrar por período (de/até por parâmetro ou janela de dias)."""
+    params = spec.get("parametros") or {}
+    return {f.get("campo") for f in spec.get("filtros") or []
+            if (params.get(f.get("parametro"), {}).get("tipo") == "data" and f.get("op") in ("maior_igual", "menor_igual", "igual")) or f.get("op") in JANELAS}
+
+
 def extrair_parametros(pergunta: str, spec: dict, hoje=None) -> dict:
     """Preenche parâmetros enum citados na pergunta, por palavra inteira (valor, rótulo ou sinônimo), os dias de uma janela e as
     datas de um período (de/ate): "ontem" vira a data de ontem, "esta semana" vira segunda..hoje."""
     achados = {}
     periodo = periodo_da_pergunta(pergunta, hoje) if hoje else None
     if periodo:
+        campos_data = campos_de_periodo(spec)
+        pedidos = set(campos_de_data_pedidos(pergunta, spec.get("entidade", "")))
+        # o verbo escolhe a data ("criados hoje" -> criado_em); sem verbo só vale se a consulta tem UMA data (senão a Lumi pergunta qual)
+        alvos = (campos_data & pedidos) if pedidos else (campos_data if len(campos_data) == 1 else set())
         for f in spec.get("filtros", []):
             pr = (spec.get("parametros") or {}).get(f.get("parametro"), {})
-            if pr.get("tipo") == "data" and f.get("op") in ("maior_igual", "menor_igual", "igual"):
+            if f.get("campo") in alvos and pr.get("tipo") == "data" and f.get("op") in ("maior_igual", "menor_igual", "igual"):
                 if f["op"] == "maior_igual":
                     achados[f["parametro"]] = periodo[0]
                 elif f["op"] == "menor_igual":
@@ -357,6 +389,15 @@ def extrair_parametros(pergunta: str, spec: dict, hoje=None) -> dict:
     for nome, d in (spec.get("parametros") or {}).items():
         if d.get("tipo") == "numero" and nome in por_janela and dias_da_pergunta is not None:
             achados[nome] = dias_da_pergunta
+        if d.get("tipo") == "bool":
+            for f in spec.get("filtros", []):
+                sim_nao = BOOL_PALAVRAS.get(f.get("campo"))
+                if f.get("parametro") == nome and f.get("op") == "igual" and sim_nao:
+                    if raiz(sim_nao[1]) in q:  # "inativos" antes de "ativos"
+                        achados[nome] = False
+                    elif raiz(sim_nao[0]) in q:
+                        achados[nome] = True
+            continue
         if d.get("tipo") != "enum":
             continue
         for v in d.get("valores", []):
