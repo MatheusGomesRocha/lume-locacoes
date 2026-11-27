@@ -270,3 +270,11 @@ def test_tester_refaz_total_esperado_de_listagem_por_janela():
     caso = {"tipo": "execucao", "origem": "tester_llm", "esperado": {"total": 99}, "sessao": "master", "params": {"dias": 0}, "descricao": "hoje"}
     avisos = refazer_totais_de_janela(spec, [caso])
     assert avisos and caso["esperado"]["total"] != 99
+
+
+def test_seguimento_com_agradecimento_na_frente():
+    from app.ferramentas import parece_seguimento
+    h = ["quantos clientes foram cadastrados hoje?"]
+    assert parece_seguimento("valeu! e ontem, quantos foram?", h)
+    assert parece_seguimento("ok, e quais os nomes deles?", h)
+    assert not parece_seguimento("valeu, como criar um orçamento?", h)

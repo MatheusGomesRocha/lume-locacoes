@@ -267,7 +267,7 @@ _SEGUIMENTO = re.compile(r"^e\s|\b(del[ea]s?|dess[ea]s?|ess[ea]s?|el[ea]s?|nest[
 
 def parece_seguimento(pergunta: str, historico: list[str] | None = None) -> bool:
     """"e quais os nomes deles?", "e desses, quantos ativos?": curta e depende da conversa. Só então vale gastar o modelo para reformular."""
-    p = _sem_acento(pergunta).strip()
+    p = re.sub(r"^((valeu|obrigad[oa]|ok|beleza|blz|show|legal|certo|entendi|massa|top|perfeito|otimo)\b[\s,!.]*)+", "", _sem_acento(pergunta).strip())  # "valeu! e ontem?"
     if len(p.split()) > 9 or not _SEGUIMENTO.search(p):
         return False
     if historico is None:
