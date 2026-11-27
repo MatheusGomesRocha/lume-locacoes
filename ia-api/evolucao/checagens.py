@@ -6,8 +6,8 @@ Quando o Tester (Agent 3) descobrir um tipo de falha que vale para toda consulta
 import re
 
 from app import ferramentas
-from evolucao.consulta import CHAVES_DA_SPEC, JANELAS, OPERACOES, OPS_POR_TIPO, buscar_consulta, pontuar
-from evolucao.esquema import ESQUEMA, PERMISSOES_VALIDAS, TIPOS
+from evolucao.consulta import CHAVES_DA_SPEC, JANELAS, OPERACOES, OPS_POR_TIPO, ErroConsulta, ParametroInvalido, buscar_consulta, executar, pontuar, tipo_da_pergunta
+from evolucao.esquema import DADOS_TESTE, ESQUEMA, HOJE_TESTE, PERMISSOES_VALIDAS, SESSOES_TESTE, TIPOS
 
 NOME_OK = re.compile(r"^[a-z][a-z0-9_]{2,59}$")
 SUSPEITO = re.compile(r"(;|--|/\*|\b(select|insert|update|delete|drop|union|exec)\b|<script|\bignore\b.*\b(regras|instru)|\bsystem prompt\b)", re.I)
@@ -135,6 +135,15 @@ def checar_spec(spec: dict, proposta: dict | None = None, catalogo: list[dict] |
         if p not in citados:
             f.append(_a("C09", "aviso", f"o parâmetro {p} foi declarado e nenhum filtro o usa"))
 
+    if not any(a["gravidade"] == "bloqueio" for a in f):
+        f += _periodo_de_calendario(spec)
+    # C15: a operação da consulta é a que as perguntas de exemplo pedem (quem pede nomes não pode receber uma contagem)
+    for e in spec.get("exemplos") or []:
+        pedido = tipo_da_pergunta(str(e))
+        if pedido and spec.get("operacao") in OPERACOES and pedido != spec.get("operacao"):
+            f.append(_a("C15", "bloqueio", f"o exemplo “{e}” pede {pedido}, mas a consulta faz {spec.get('operacao')}: quem pede um não pode receber o outro"))
+            break
+
     if any(SUSPEITO.search(t) for t in _textos({k: v for k, v in spec.items() if k != "nome"})):
         f.append(_a("C10", "bloqueio", "a consulta tem texto com cara de SQL, script ou instrução"))
 
@@ -156,6 +165,40 @@ def checar_spec(spec: dict, proposta: dict | None = None, catalogo: list[dict] |
     if proposta and proposta.get("decisao") == "criar_consulta":
         f += _fidelidade(spec, proposta)
     return f
+
+
+def _par_de_periodo(spec: dict):
+    """(parâmetro de início, parâmetro de fim, campo) quando a consulta é de período de calendário: campo >= de e campo <= ate, ambos datas."""
+    params = spec.get("parametros") or {}
+    filtros = spec.get("filtros") or []
+    for a in filtros:
+        for b in filtros:
+            if (a.get("op") == "maior_igual" and b.get("op") == "menor_igual" and a.get("campo") == b.get("campo") and "parametro" in a and "parametro" in b
+                    and params.get(a["parametro"], {}).get("tipo") == "data" and params.get(b["parametro"], {}).get("tipo") == "data"):
+                return a["parametro"], b["parametro"], a["campo"]
+    return None
+
+
+def _periodo_de_calendario(spec: dict) -> list[dict]:
+    """C14 — consulta de período: início depois do fim tem que ser RECUSADO (não vira "0 resultados") e um período normal tem que rodar.
+    Nasceu do aviso T02 da EV-0036: o Tester esperou erro para de > ate e a consulta devolveu total 0."""
+    par = _par_de_periodo(spec)
+    if par is None:
+        return []
+    de, ate, _ = par
+    sessao = {**SESSOES_TESTE["master"], "hoje": HOJE_TESTE}
+    try:
+        executar(spec, {de: "2026-11-26", ate: "2026-11-20"}, DADOS_TESTE, sessao)
+        return [_a("C14", "bloqueio", f"consulta de período aceitou {de} depois de {ate} e respondeu como se fosse uma pergunta válida: deve recusar")]
+    except ParametroInvalido:
+        pass
+    except ErroConsulta:
+        return []  # permissão ou outra recusa: já aparece nas outras checagens
+    try:
+        executar(spec, {de: "2026-11-20", ate: "2026-11-26"}, DADOS_TESTE, sessao)
+    except ErroConsulta:
+        return [_a("C14", "bloqueio", f"consulta de período recusou um período normal ({de} antes de {ate})")]
+    return []
 
 
 def _regras_de_modulo(spec: dict) -> list[dict]:

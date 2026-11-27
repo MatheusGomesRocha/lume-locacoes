@@ -24,4 +24,10 @@ class SemTextoDeAtaqueTest extends TestCase
         $rel = ['p' => 'quais clientes foram cadastrados hoje?', 'l' => ['x', 1, null]];
         $this->assertSame($rel, SemTextoDeAtaque::limpar($rel));
     }
+
+    public function test_contem_acha_a_frase_em_qualquer_profundidade(): void
+    {
+        $this->assertTrue(SemTextoDeAtaque::contem(['pergunta' => 'quero drop table clientes', 'vezes' => 1]));
+        $this->assertFalse(SemTextoDeAtaque::contem([['pergunta' => 'quantos clientes novos?']]));
+    }
 }

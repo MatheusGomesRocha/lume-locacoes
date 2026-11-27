@@ -71,6 +71,7 @@ class EvolucaoController extends Controller
     public function analisar(): JsonResponse
     {
         $perguntas = $this->perguntasParaAnalisar();
+        $perguntas = array_values(array_filter($perguntas, fn ($p) => ! \App\Support\SemTextoDeAtaque::contem($p)));
         if (! $perguntas) {
             return response()->json(['novos' => [], 'semPerguntas' => true]);
         }

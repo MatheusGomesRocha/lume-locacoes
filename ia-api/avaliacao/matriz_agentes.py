@@ -98,6 +98,42 @@ def casos() -> list[tuple[str, callable]]:
             return None
         saida.append((f"{e}.{campo}: hoje/ontem/esta semana viram datas e batem com a contagem por datas", periodo))
 
+    # C14 (erro T02 da EV-0036): período invertido é recusado pelo executor e a checagem fixa pega quem aceitar
+    for e, campo in _campos_de_data():
+        def invertido(e=e, campo=campo):
+            spec = {**_spec(e, campo, "maior_igual"), "parametros": {"de": {"tipo": "data", "obrigatorio": True}, "ate": {"tipo": "data", "obrigatorio": True}},
+                    "filtros": [{"campo": campo, "op": "maior_igual", "parametro": "de"}, {"campo": campo, "op": "menor_igual", "parametro": "ate"}]}
+            try:
+                executar(spec, {"de": "2026-11-26", "ate": "2026-11-20"}, DADOS_TESTE, SESSOES_TESTE["master"])
+                return "o executor aceitou de depois de ate"
+            except Exception as ex:  # noqa: BLE001
+                if type(ex).__name__ != "ParametroInvalido":
+                    return f"recusou pelo motivo errado: {type(ex).__name__}"
+            if [a for a in checagens.checar_spec(spec) if a["codigo"] == "C14"]:
+                return "C14 reclamou de uma consulta de período correta"
+            original = checagens.executar
+            checagens.executar = lambda *a, **k: {"total": 0}  # um executor que "aceita tudo"
+            try:
+                if not [a for a in checagens.checar_spec(spec) if a["codigo"] == "C14"]:
+                    return "C14 não pegou um executor que aceita período invertido"
+            finally:
+                checagens.executar = original
+            return None
+        saida.append((f"{e}.{campo}: período invertido é recusado e a checagem C14 pega quem aceitar", invertido))
+
+    # C15: quem pede nomes não pode receber contagem (e o contrário)
+    for e, d in ESQUEMA.items():
+        def tipo_certo(e=e, d=d):
+            base = _spec(e, next(c for c, v in d["campos"].items() if v["tipo"] == "data") if _campos_de_data() and any(v["tipo"] == "data" for v in d["campos"].values()) else next(iter(d["campos"])), "ultimos_dias")
+            ruim = {**base, "exemplos": [f"quais os nomes dos {e} cadastrados", f"liste os {e} do periodo", f"listar {e} do periodo"]}
+            bom = {**base, "exemplos": [f"quantos {e} cadastrados", f"total de {e} do periodo", f"numero de {e} do periodo"]}
+            if not [a for a in checagens.checar_spec(ruim) if a["codigo"] == "C15"]:
+                return "C15 não pegou contar com exemplos que pedem lista"
+            if [a for a in checagens.checar_spec(bom) if a["codigo"] == "C15"]:
+                return "C15 reclamou de contar com exemplos que pedem contagem"
+            return None
+        saida.append((f"{e}: C15 pega contagem com exemplo de lista", tipo_certo))
+
     # Agent 4: o risco só é baixo para leitura em entidade livre e sem campo pessoal
     for e, d in ESQUEMA.items():
         def risco(e=e, d=d):

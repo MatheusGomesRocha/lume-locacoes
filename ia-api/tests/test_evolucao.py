@@ -470,3 +470,20 @@ def test_resumo_do_arquivo_de_erros_do_tester_acha_o_que_se_repete():
                        {**base, "relatorio": "EV-0002", "tipo": "caso_falhou", "texto": "unico"}]}
     r = resumir(dados)
     assert "2x [corrigido_pelo_codigo]" in r and "3 em 2 relatórios" in r
+
+
+def test_c14_periodo_invertido_e_recusado_e_a_checagem_pega_quem_aceitar(monkeypatch):
+    spec = {**copy.deepcopy(SPEC), "nome": "clientes_cadastrados_periodo", "operacao": "contar", "entidade": "clientes", "permissao": "clientes.ver", "saida": [],
+            "parametros": {"de": {"tipo": "data", "obrigatorio": True}, "ate": {"tipo": "data", "obrigatorio": True}},
+            "filtros": [{"campo": "criado_em", "op": "maior_igual", "parametro": "de"}, {"campo": "criado_em", "op": "menor_igual", "parametro": "ate"}]}
+    assert not [a for a in checagens.checar_spec(spec) if a["codigo"] == "C14"]
+    monkeypatch.setattr(checagens, "executar", lambda *a, **k: {"total": 0})
+    assert [a for a in checagens.checar_spec(spec) if a["codigo"] == "C14" and a["gravidade"] == "bloqueio"]
+
+
+def test_c15_exemplo_que_pede_nomes_nao_pode_ser_de_uma_contagem():
+    spec = copy.deepcopy(SPEC)
+    spec.update(operacao="contar", saida=[], exemplos=["quais os nomes dos clientes cadastrados hoje?", "quantos clientes cadastrados hoje?", "total de clientes cadastrados hoje"])
+    assert [a for a in checagens.checar_spec(spec) if a["codigo"] == "C15" and a["gravidade"] == "bloqueio"]
+    spec["exemplos"] = ["quantos clientes cadastrados hoje?", "total de clientes cadastrados hoje", "numero de clientes cadastrados hoje"]
+    assert not [a for a in checagens.checar_spec(spec) if a["codigo"] == "C15"]
