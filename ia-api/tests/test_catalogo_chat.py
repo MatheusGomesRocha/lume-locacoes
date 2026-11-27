@@ -195,7 +195,37 @@ def test_seguimento_e_reformulado_com_o_historico(monkeypatch):
     monkeypatch.setattr(main, "reformular_seguimento", lambda p, l, q, h: chamadas.append((q, h)) or "quais os nomes dos clientes cadastrados hoje?")
     contar = {"nome": "c_hoje", "descricao": "Conta clientes cadastrados hoje", "entidade": "clientes", "operacao": "contar", "permissao": "clientes.ver", "saida": [], "parametros": {},
               "exemplos": ["quantos clientes cadastrados hoje", "total de clientes cadastrados hoje", "numero de clientes cadastrados hoje"], "palavras_chave": ["clientes", "cadastrados"], "sinonimos": {}, "filtros": []}
-    completa = main._completar_seguimento("e qual os nomes deles?", ["quantos clientes foram cadastrados hoje?"])
+    completa, duvida = main._completar_seguimento("e qual os nomes deles?", ["quantos clientes foram cadastrados hoje?"])
+    assert duvida is None
     assert completa == "quais os nomes dos clientes cadastrados hoje?"
     r = main._agente(completa, ["quantos clientes foram cadastrados hoje?"], main.PerguntaIn(pergunta=completa, catalogo=[contar]))
     assert chamadas and r["encontrou"] is False and "listar" in r["resposta"] and not r.get("consultas")
+
+
+def test_texto_do_modelo_com_numero_inventado_e_descartado(monkeypatch):
+    from app import main
+    from app.confianca import texto_confere_com_dados
+    dados = [{"nome": "consultar_clientes", "args": {}, "resultado": {"total": 17, "linhas": [{"nome": "Ana"}] * 3}}]
+    assert texto_confere_com_dados("Encontrei 17 clientes, mostrando os 3 primeiros.", dados)
+    assert texto_confere_com_dados("O total de R$ 1.234,56 em 26/11/2026.", [{"nome": "x", "args": {}, "resultado": {"soma": 1234.56, "dia": "2026-11-26"}}])
+    assert not texto_confere_com_dados("Encontrei 19 clientes.", dados)
+    monkeypatch.setattr(main, "provedor_llm", object())
+    monkeypatch.setattr(main, "redigir_com_dados", lambda *a, **k: "Você tem 99 clientes.")
+    r = main._agente("quantos clientes?", [], main.PerguntaIn(pergunta="quantos clientes?", resultados=dados))
+    assert "99" not in r["resposta"] and "17" in r["resposta"] and r["gerada_por_llm"] is False
+
+
+def test_reescrita_que_muda_o_pedido_ou_perde_o_assunto_vira_pergunta(monkeypatch):
+    from app import main
+    from app.confianca import seguimento_confere
+    h = ["quantos clientes foram cadastrados hoje?"]
+    assert seguimento_confere("e quais os nomes deles?", "quais os nomes dos clientes cadastrados hoje?", h)
+    assert not seguimento_confere("e quais os nomes deles?", "quantos clientes foram cadastrados hoje?", h)  # virou contagem
+    assert not seguimento_confere("e quais os nomes deles?", "quais os nomes dos produtos mais alugados?", h)  # perdeu o assunto
+    monkeypatch.setattr(main, "provedor_llm", object())
+    monkeypatch.setattr(main, "reformular_seguimento", lambda *a: "quantos pedidos foram feitos?")
+    main.cache.limpar() if hasattr(main.cache, "limpar") else None
+    completa, duvida = main._completar_seguimento("e quais os nomes deles?", h)
+    assert duvida == "quantos pedidos foram feitos?"
+    monkeypatch.setattr(main, "reformular_seguimento", lambda *a: None)
+    assert main._completar_seguimento("e quais os nomes dos outros?", h)[1] == ""

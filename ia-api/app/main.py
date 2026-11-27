@@ -28,6 +28,9 @@ from evolucao.consulta import buscar_consulta, extrair_parametros, tipo_da_pergu
 from evolucao.esquema import ESQUEMA
 from evolucao.pipeline import gerar_relatorios
 from app.limite import LimitadorDeRequisicoes
+import logging
+
+from app.confianca import seguimento_confere, texto_confere_com_dados, texto_seguro
 from app.llm import AJUDA, INSTRUCOES, INSTRUCOES_AGENTE, LimitadorDiario, criar_provedor_do_ambiente, decidir_acao, gerar_resposta, limite_diario_do_ambiente, redigir_com_dados, reformular_seguimento
 
 PASTA_DADOS = Path(__file__).resolve().parent.parent / "data"
@@ -214,7 +217,8 @@ def texto_do_catalogo(spec: dict, resultado: Any) -> str:
     if not isinstance(resultado, dict) or "erro" in resultado:
         return str((resultado or {}).get("erro", "Não consegui consultar agora.")).capitalize() + "." if isinstance(resultado, dict) else "Não consegui consultar agora."
     rotulo = ESQUEMA.get(spec.get("entidade"), {}).get("rotulo", "registros").lower()
-    partes = [f"Encontrei {resultado.get('total', 0)} em {rotulo}."]
+    partes = [f"Entendi: {spec['descricao']}"] if spec.get("descricao") else []
+    partes.append(f"Encontrei {resultado.get('total', 0)} em {rotulo}.")
     if "soma" in resultado:
         partes.append(f"Soma: {str(resultado['soma']).replace('.', ',')}.")
     for linha in resultado.get("linhas", [])[:15]:
@@ -222,17 +226,23 @@ def texto_do_catalogo(spec: dict, resultado: Any) -> str:
     return "\n".join(partes)
 
 
-def _completar_seguimento(pergunta: str, historico: list[str]) -> str:
-    """"e quais os nomes deles?" vira a pergunta completa, usando o modelo e a conversa. Sem modelo ou sem seguimento, volta igual."""
+log = logging.getLogger("lume.chat")
+
+
+def _completar_seguimento(pergunta: str, historico: list[str]) -> tuple[str, str | None]:
+    """"e quais os nomes deles?" vira a pergunta completa, com o modelo e a conversa. Devolve (pergunta, sugestao):
+    sugestao é None quando não era seguimento ou a reescrita foi conferida; senão a reescrita duvidosa ("" se nem houve) e a Lumi PERGUNTA."""
     if not (historico and ferramentas.parece_seguimento(pergunta, historico)):
-        return pergunta
+        return pergunta, None
     chave_seg = chave_da_conversa("seguimento", VERSAO_DO_CONTEUDO, pergunta, historico, None)
     nova = cache.obter(chave_seg)
     if nova is None:
         nova = reformular_seguimento(provedor_llm, limitador_llm, pergunta, historico)
-        if nova:
+        if nova and seguimento_confere(pergunta, nova, historico):
             cache.guardar(chave_seg, nova)
-    return nova or pergunta
+        else:
+            return pergunta, nova or ""
+    return nova, None
 
 
 def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | None:
@@ -243,6 +253,9 @@ def _agente(pergunta: str, historico: list[str], dados: PerguntaIn) -> dict | No
         return _resposta_agente("\n\n".join(texto_do_catalogo(por_nome.get(r["args"]["nome"], {}), r["resultado"]) for r in resultados), gerada_por_llm=False)
     if resultados:  # segunda volta: o front já consultou, falta redigir a resposta
         texto = redigir_com_dados(provedor_llm, limitador_llm, pergunta, historico, resultados, dados.hoje)
+        if texto and not texto_confere_com_dados(texto, resultados, pergunta, dados.hoje):  # número que não existe nos dados: descarta o texto do modelo
+            log.warning("texto do modelo descartado: número fora dos dados")
+            return _resposta_agente(texto_seguro(resultados), gerada_por_llm=False)
         return _resposta_agente(texto or "Não consegui montar a resposta agora. Tente de novo em instantes.", encontrou=texto is not None, gerada_por_llm=texto is not None)
 
     impossivel = None if ferramentas.pede_acao(pergunta) else pergunta_impossivel(pergunta)
@@ -387,10 +400,16 @@ def _responder(dados: PerguntaIn):
     if papo:
         return {"encontrou": True, "resposta": papo, "fonte": None, "confianca": 1.0, "relacionadas": [], "usou_contexto": False, "gerada_por_llm": False}
 
-    completa = _completar_seguimento(pergunta, contexto.perguntas_anteriores)
+    completa, duvida = _completar_seguimento(pergunta, contexto.perguntas_anteriores)
+    if duvida is not None:  # não deu para ter certeza do que ele quis dizer: pergunta, não chuta
+        quis = f"Você quis dizer: “{duvida}”? Se sim, envie a pergunta completa." if duvida else "Pode escrever a pergunta completa, com o assunto?"
+        return _resposta_agente(f"Não tenho certeza do que você quer saber com “{pergunta[:80]}”. {quis}", esclarecimento=True, gerada_por_llm=False)
     da_ferramenta = _agente(completa, contexto.perguntas_anteriores, dados)
     if da_ferramenta is not None:
-        return {**da_ferramenta, **({"pergunta_completa": completa} if completa != pergunta else {})}
+        if completa == pergunta:
+            return da_ferramenta
+        texto = f"Entendi: {completa}\n\n{da_ferramenta['resposta']}" if da_ferramenta.get("resposta") else da_ferramenta["resposta"]
+        return {**da_ferramenta, "resposta": texto, "pergunta_completa": completa}
 
     resultados, usou_contexto = base_local.buscar_com_contexto(pergunta, contexto, limite=4)
     melhor = resultados[0] if resultados else None

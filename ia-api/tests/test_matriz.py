@@ -37,3 +37,14 @@ def test_licoes_so_vao_para_analista_e_construtor_e_cabem_no_prompt():
     todas = licoes.carregar()
     assert all(set(l["agentes"]) <= {"analista", "construtor"} for l in todas)
     assert len(licoes.selecionar("construtor", "devolução retirada orçamento hoje último cadastrado")) <= licoes.MAXIMO_POR_PROMPT
+
+
+def test_casos_de_seguimento_sao_coerentes():
+    from avaliacao import seguimento
+    assert len(seguimento.CASOS) >= 15
+    assert all(h and p and deve for h, p, deve, _ in seguimento.CASOS)
+    caso = seguimento.CASOS[0]
+    assert seguimento.avaliar(caso, {"pergunta_completa": "quais os nomes dos clientes cadastrados hoje?"}) == "certo"
+    assert seguimento.avaliar(caso, {"pergunta_completa": "quantos clientes foram cadastrados hoje?"}) == "errado"
+    assert seguimento.avaliar(caso, {"esclarecimento": True}) == "perguntou"
+    assert seguimento.avaliar(caso, {}) == "errado"
