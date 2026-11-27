@@ -91,3 +91,36 @@ def test_checar_refaz_as_checagens_sem_modelo(cliente):
     assert ok["bloqueio"] is False
     ruim = cliente.post("/evolucao/checar", json={"spec": {**SPEC, "operacao": "excluir"}}).json()
     assert ruim["bloqueio"] is True
+
+
+SPEC_RECENTES = {
+    "nome": "contar_clientes_recentes", "descricao": "Conta clientes cadastrados nos últimos N dias.", "entidade": "clientes", "operacao": "contar", "permissao": "clientes.ver", "papel_minimo": "usuario",
+    "parametros": {"dias": {"tipo": "numero", "obrigatorio": True}}, "filtros": [{"campo": "criado_em", "op": "ultimos_dias", "parametro": "dias"}],
+    "exemplos": ["quantos clientes foram cadastrados nos ultimos 7 dias", "clientes novos nos ultimos 30 dias", "quantos clientes cadastrei hoje"],
+}
+
+
+def test_extrai_a_quantidade_de_dias_da_pergunta():
+    from evolucao.consulta import extrair_parametros
+    assert extrair_parametros("quantos clientes foram cadastrados nos últimos 7 dias?", SPEC_RECENTES) == {"dias": 7}
+    assert extrair_parametros("clientes das últimas 2 semanas", SPEC_RECENTES) == {"dias": 14}
+    assert extrair_parametros("clientes do último mês", SPEC_RECENTES) == {"dias": 30}
+    assert extrair_parametros("quantos clientes cadastrei hoje", SPEC_RECENTES) == {"dias": 0}
+    assert extrair_parametros("quantos clientes temos", SPEC_RECENTES) == {}  # sem período: o chat pergunta
+
+
+def test_filtro_de_ultimos_dias_passa_nas_checagens_e_exige_parametro_numerico():
+    from evolucao import checagens
+    assert not checagens.tem_bloqueio(checagens.checar_spec(SPEC_RECENTES, None, []))
+    ruim = {**SPEC_RECENTES, "parametros": {"dias": {"tipo": "data", "obrigatorio": True}}}
+    assert any("pede numero" in a["mensagem"] for a in checagens.checar_spec(ruim, None, []))
+
+
+def test_executa_com_hoje_e_recusa_sem_ele():
+    import pytest
+    from evolucao.consulta import ErroConsulta, executar
+    from evolucao.esquema import DADOS_TESTE, SESSOES_TESTE
+    assert executar(SPEC_RECENTES, {"dias": 7}, DADOS_TESTE, SESSOES_TESTE["vendedor"]) == {"total": 2}  # Maria (25/11) e Padaria (20/11); Mariana (10/11) está fora
+    assert executar(SPEC_RECENTES, {"dias": 3}, DADOS_TESTE, SESSOES_TESTE["vendedor"]) == {"total": 1}
+    with pytest.raises(ErroConsulta):
+        executar(SPEC_RECENTES, {"dias": 7}, DADOS_TESTE, {"papel": "usuario", "permissoes": ["clientes.ver"]})

@@ -122,8 +122,9 @@ def checar_spec(spec: dict, proposta: dict | None = None, catalogo: list[dict] |
             d = params.get(fl["parametro"])
             if d is None:
                 f.append(_a("C09", "bloqueio", f"o filtro usa o parâmetro {fl['parametro']}, que não foi declarado"))
-            elif d.get("tipo") != c["tipo"]:
-                f.append(_a("C09", "bloqueio", f"o parâmetro {fl['parametro']} é {d.get('tipo')} mas o campo {fl['campo']} é {c['tipo']}"))
+            elif d.get("tipo") != ("numero" if fl.get("op") == "ultimos_dias" else c["tipo"]):
+                esperado_tipo = "numero (a quantidade de dias)" if fl.get("op") == "ultimos_dias" else c["tipo"]
+                f.append(_a("C09", "bloqueio", f"o parâmetro {fl['parametro']} é {d.get('tipo')} mas o filtro de {fl['campo']} pede {esperado_tipo}"))
             elif c["tipo"] == "enum" and not set(d.get("valores", [])) <= set(c["valores"]):
                 f.append(_a("C09", "bloqueio", f"o parâmetro {fl['parametro']} aceita valores que o campo não tem"))
         elif c["tipo"] == "enum" and fl.get("valor") not in c["valores"]:

@@ -9,7 +9,7 @@ O executor aplica as mesmas regras que o front aplicará: permissão primeiro, p
 """
 import re
 import unicodedata
-from datetime import date
+from datetime import date, timedelta
 
 from evolucao.esquema import DATA_ISO, ESQUEMA
 
@@ -17,7 +17,7 @@ OPERACOES = ("contar", "listar", "somar")
 OPS_POR_TIPO = {
     "texto": {"igual", "diferente", "contem"},
     "numero": {"igual", "diferente", "maior_igual", "menor_igual"},
-    "data": {"igual", "maior_igual", "menor_igual"},
+    "data": {"igual", "maior_igual", "menor_igual", "ultimos_dias"},
     "bool": {"igual"},
     "enum": {"igual", "diferente"},
 }
@@ -92,7 +92,24 @@ def validar_parametros(spec: dict, params: dict) -> dict:
     return saida
 
 
-def _confere(op: str, atual, esperado, tipo: str) -> bool:
+MAX_DIAS = 3650
+
+
+def _janela(hoje, dias) -> tuple[str, str]:
+    """"Nos últimos N dias" = de (hoje - N) até hoje, inclusive. N = 0 é só hoje."""
+    try:
+        h = date.fromisoformat(str(hoje))
+    except ValueError:
+        raise ErroConsulta("falta a data de hoje") from None
+    if isinstance(dias, bool) or not isinstance(dias, (int, float)) or dias != int(dias) or not 0 <= dias <= MAX_DIAS:
+        raise ParametroInvalido(f"quantidade de dias inválida (0 a {MAX_DIAS})")
+    return (h - timedelta(days=int(dias))).isoformat(), h.isoformat()
+
+
+def _confere(op: str, atual, esperado, tipo: str, hoje=None) -> bool:
+    if op == "ultimos_dias":
+        de, ate = _janela(hoje, esperado)
+        return atual is not None and de <= str(atual)[:10] <= ate
     if op == "contem":
         return atual is not None and casa_palavras(esperado, atual)
     if atual is None:
@@ -123,7 +140,7 @@ def executar(spec: dict, params: dict, dados: dict[str, list[dict]], sessao: dic
             esperado = valores[f["parametro"]]
         else:
             esperado = f["valor"]
-        linhas = [l for l in linhas if _confere(f["op"], l.get(f["campo"]), esperado, campo["tipo"])]
+        linhas = [l for l in linhas if _confere(f["op"], l.get(f["campo"]), esperado, campo["tipo"], sessao.get("hoje"))]
     saida: dict = {"total": len(linhas)}
     if spec["operacao"] == "somar":
         saida["soma"] = round(sum(float(l.get(spec["campo_soma"]) or 0) for l in linhas), 2)
@@ -171,11 +188,31 @@ def buscar_consulta(pergunta: str, specs: list[dict], minimo: float = 0.5, marge
     return notas[0][1]
 
 
+def _dias_da_pergunta(pergunta: str) -> int | None:
+    """"últimos 7 dias" -> 7; "2 semanas" -> 14; "último mês" -> 30; "hoje" -> 0. Sem nada disso, None (o chat pergunta)."""
+    t = sem_acento(pergunta)
+    m = re.search(r"\b(\d{1,4})\s*(dias?|semanas?|mes(?:es)?)\b", t)
+    if m:
+        n = int(m.group(1))
+        return min(MAX_DIAS, n * (7 if m.group(2).startswith("semana") else 30 if m.group(2).startswith("mes") else 1))
+    if re.search(r"\b(ultima|ultimas|passada)\s+semana\b", t):
+        return 7
+    if re.search(r"\b(ultimo|ultimos|passado)\s+mes\b", t):
+        return 30
+    if re.search(r"\bhoje\b", t):
+        return 0
+    return None
+
+
 def extrair_parametros(pergunta: str, spec: dict) -> dict:
     """Preenche parâmetros enum citados na pergunta, por palavra inteira (valor, rótulo ou sinônimo)."""
     achados = {}
     q = set(palavras(pergunta))
+    dias_da_pergunta = _dias_da_pergunta(pergunta)
+    por_janela = {f.get("parametro") for f in spec.get("filtros", []) if f.get("op") == "ultimos_dias"}
     for nome, d in (spec.get("parametros") or {}).items():
+        if d.get("tipo") == "numero" and nome in por_janela and dias_da_pergunta is not None:
+            achados[nome] = dias_da_pergunta
         if d.get("tipo") != "enum":
             continue
         for v in d.get("valores", []):

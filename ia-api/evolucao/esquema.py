@@ -17,7 +17,7 @@ def _c(tipo: str, rotulo: str, valores: list[str] | None = None, nivel: str = "n
 ESQUEMA: dict[str, dict] = {
     "clientes": {"rotulo": "Clientes", "permissao": "clientes.ver", "so_admin": False, "campos": {
         "nome": _c("texto", "Nome"), "tipo": _c("enum", "Tipo", ["PF", "PJ"]), "cidade": _c("texto", "Cidade"),
-        "observacoes": _c("texto", "Observações"),
+        "observacoes": _c("texto", "Observações"), "criado_em": _c("data", "Cadastrado em"),
         "documento": _c("texto", "CPF/CNPJ", nivel="pessoal"), "email": _c("texto", "E-mail", nivel="pessoal"),
         "telefone": _c("texto", "Telefone", nivel="pessoal"),
     }},
@@ -25,6 +25,7 @@ ESQUEMA: dict[str, dict] = {
         "codigo": _c("texto", "Código"), "nome": _c("texto", "Nome"), "categoria": _c("texto", "Categoria"),
         "valor_diaria": _c("numero", "Valor da diária"), "valor_reposicao": _c("numero", "Valor de reposição"),
         "quantidade": _c("numero", "Quantidade em estoque"), "ativo": _c("bool", "Ativo"),
+        "criado_em": _c("data", "Cadastrado em"),
     }},
     "orcamentos": {"rotulo": "Orçamentos", "permissao": "orcamentos.ver", "so_admin": False, "campos": {
         "numero": _c("texto", "Número"), "cliente_nome": _c("texto", "Cliente"), "evento": _c("texto", "Evento"),
@@ -69,6 +70,9 @@ REGRAS_DE_MODULO = {
 }
 
 # Dados pequenos e fixos para os testes (as armadilhas são de propósito: nomes parecidos, inativos, datas).
+# "Hoje" dos testes: as datas de DADOS_TESTE e os casos com "últimos N dias" são calculados a partir dele.
+HOJE_TESTE = "2026-11-26"
+
 DADOS_TESTE: dict[str, list[dict]] = {
     "grupos": [
         {"nome": "Master", "descricao": "Acesso total", "sistema": True, "usuarios_count": 1, "permissoes_count": 30},
@@ -82,15 +86,15 @@ DADOS_TESTE: dict[str, list[dict]] = {
         {"nome": "Carla Dias", "papel": "usuario", "grupo_nome": "Vendas", "ativo": False, "email": "c@x.com", "senha": "hash4"},
     ],
     "clientes": [
-        {"nome": "Maria Souza", "tipo": "PF", "cidade": "Fortaleza", "observacoes": None, "documento": "111", "email": "ms@x.com", "telefone": "8599"},
-        {"nome": "Mariana Albuquerque", "tipo": "PF", "cidade": "Sobral", "observacoes": None, "documento": "222", "email": None, "telefone": None},
-        {"nome": "Padaria Sol", "tipo": "PJ", "cidade": "Fortaleza", "observacoes": "Cliente antigo", "documento": "333", "email": None, "telefone": None},
+        {"nome": "Maria Souza", "tipo": "PF", "cidade": "Fortaleza", "observacoes": None, "criado_em": "2026-11-25", "documento": "111", "email": "ms@x.com", "telefone": "8599"},
+        {"nome": "Mariana Albuquerque", "tipo": "PF", "cidade": "Sobral", "observacoes": None, "criado_em": "2026-11-10", "documento": "222", "email": None, "telefone": None},
+        {"nome": "Padaria Sol", "tipo": "PJ", "cidade": "Fortaleza", "observacoes": "Cliente antigo", "criado_em": "2026-11-20", "documento": "333", "email": None, "telefone": None},
     ],
     "produtos": [
-        {"codigo": "MS-01", "nome": "Mesa Redonda 1,5 m", "categoria": "Mesas", "valor_diaria": 35.0, "valor_reposicao": 400.0, "quantidade": 40, "ativo": True},
-        {"codigo": "CD-01", "nome": "Cadeira Tiffany Branca", "categoria": "Cadeiras", "valor_diaria": 9.0, "valor_reposicao": 90.0, "quantidade": 200, "ativo": True},
-        {"codigo": "RF-01", "nome": "Refletor LED", "categoria": "Iluminação", "valor_diaria": 85.0, "valor_reposicao": 700.0, "quantidade": 10, "ativo": True},
-        {"codigo": "VR-09", "nome": "Varal de Luzes", "categoria": "Iluminação", "valor_diaria": 60.0, "valor_reposicao": 300.0, "quantidade": 5, "ativo": False},
+        {"codigo": "MS-01", "nome": "Mesa Redonda 1,5 m", "categoria": "Mesas", "valor_diaria": 35.0, "valor_reposicao": 400.0, "quantidade": 40, "ativo": True, "criado_em": "2026-10-01"},
+        {"codigo": "CD-01", "nome": "Cadeira Tiffany Branca", "categoria": "Cadeiras", "valor_diaria": 9.0, "valor_reposicao": 90.0, "quantidade": 200, "ativo": True, "criado_em": "2026-11-24"},
+        {"codigo": "RF-01", "nome": "Refletor LED", "categoria": "Iluminação", "valor_diaria": 85.0, "valor_reposicao": 700.0, "quantidade": 10, "ativo": True, "criado_em": "2026-11-02"},
+        {"codigo": "VR-09", "nome": "Varal de Luzes", "categoria": "Iluminação", "valor_diaria": 60.0, "valor_reposicao": 300.0, "quantidade": 5, "ativo": False, "criado_em": "2026-11-26"},
     ],
     "orcamentos": [
         {"numero": "ORC-2026-0001", "cliente_nome": "Maria Souza", "evento": "Casamento", "status": "aprovado", "data_retirada": "2026-11-26", "data_devolucao": "2026-11-27", "diarias": 1, "desconto": 0.0, "total": 160.0},
@@ -107,8 +111,8 @@ DADOS_TESTE: dict[str, list[dict]] = {
 
 # Quem pergunta nos testes de permissão.
 SESSOES_TESTE = {
-    "master": {"papel": "master", "permissoes": sorted(PERMISSOES_VALIDAS)},
-    "admin": {"papel": "admin", "permissoes": sorted(PERMISSOES_VALIDAS)},
-    "vendedor": {"papel": "usuario", "permissoes": ["clientes.ver", "produtos.ver", "orcamentos.ver", "orcamentos.criar", "painel.ver"]},
-    "sem_nada": {"papel": "usuario", "permissoes": []},
+    "master": {"papel": "master", "permissoes": sorted(PERMISSOES_VALIDAS), "hoje": HOJE_TESTE},
+    "admin": {"papel": "admin", "permissoes": sorted(PERMISSOES_VALIDAS), "hoje": HOJE_TESTE},
+    "vendedor": {"papel": "usuario", "permissoes": ["clientes.ver", "produtos.ver", "orcamentos.ver", "orcamentos.criar", "painel.ver"], "hoje": HOJE_TESTE},
+    "sem_nada": {"papel": "usuario", "permissoes": [], "hoje": HOJE_TESTE},
 }

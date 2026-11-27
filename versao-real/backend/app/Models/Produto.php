@@ -16,6 +16,14 @@ class Produto extends Model
         'ativo' => 'boolean',
     ];
 
+    /** O front usa `criado_em` (data do cadastro); o banco guarda `created_at`. */
+    protected $appends = ['criado_em'];
+
+    public function getCriadoEmAttribute(): ?string
+    {
+        return $this->created_at?->toIso8601String();
+    }
+
     public function itens(): HasMany
     {
         return $this->hasMany(OrcamentoItem::class);

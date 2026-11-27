@@ -188,3 +188,10 @@ Ainda não ligado ao `/chat`: aprovadas ficam em `data/evolucao/catalogo.json`; 
 2. **Decidir** – o master lê o relatório e aprova ou reprova. Ao aprovar, as checagens fixas são refeitas em `POST /evolucao/checar` (sem modelo); com bloqueio, ou sem resposta da API, **não ativa**. Veredito “reprovar recomendado” só permite reprovar.
 3. **Usar** – as consultas ativas viajam com cada pergunta (`catalogo`, como o `faq_extra`). O `/chat` as encontra antes de perguntar ao modelo, pede ao front `{nome: "catalogo", args: {nome, params}}`, o front executa pela mesma API das telas (com as permissões de quem está logado) e a resposta é montada por código, sem modelo.
 4. **Mesmo resultado nos dois lados** – `versao-real/frontend/src/test/catalogo_vetores.json` tem os casos que o executor Python (`evolucao/consulta.py`) e o TypeScript (`lib/catalogo.ts`) precisam responder igual; os dois testes leem o mesmo arquivo.
+
+### Períodos relativos nas consultas ("últimos 7 dias")
+
+Um filtro `ultimos_dias` em um campo de data (ex.: `criado_em`, a data de cadastro de clientes e produtos) usa um parâmetro numérico
+com a quantidade de dias. A janela vai de `hoje - N` até `hoje`, inclusive; `N = 0` é só hoje. O "hoje" vem de quem executa
+(o front no uso real; `HOJE_TESTE` nos testes dos Agents), então a mesma consulta aprovada serve em qualquer dia.
+O chat extrai o N da pergunta por código ("7 dias", "2 semanas", "último mês", "hoje"); sem período na pergunta, ele pergunta.

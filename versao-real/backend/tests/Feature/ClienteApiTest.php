@@ -33,6 +33,14 @@ class ClienteApiTest extends TestCase
         $this->getJson('/api/clientes')->assertJsonCount(12); // sem por_pagina, a lista inteira de sempre
     }
 
+    public function test_cliente_devolve_a_data_do_cadastro(): void
+    {
+        $this->cliente(['nome' => 'Nova']);
+
+        $r = $this->getJson('/api/clientes')->assertOk();
+        $this->assertNotEmpty($r->json('0.criado_em')); // a Lumi usa para "clientes cadastrados nos últimos 7 dias"
+    }
+
     public function test_busca_por_nome_documento_email_e_cidade(): void
     {
         $this->cliente(['nome' => 'Buffet Sabor', 'documento' => '12.345', 'cidade' => 'Aquiraz']);
